@@ -7,11 +7,26 @@ import (
 	"log"
 
 	"github.com/quic-go/quic-go"
+	"github.com/songgao/water"
 	"github.com/webdunesurfer/SloPN/pkg/certutil"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
+	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
 
 func main() {
+	// 1. Setup TUN Interface
+	tunCfg := tunutil.Config{
+		Addr: "10.100.0.1",
+		Mask: "255.255.255.0",
+		MTU:  1280, // Per ADR
+	}
+	ifce, err := tunutil.CreateInterface(tunCfg)
+	if err != nil {
+		log.Fatalf("Error creating TUN: %v. (Note: May require sudo)", err)
+	}
+	defer ifce.Close()
+
+	// 2. Setup QUIC Server
 	tlsConfig, err := certutil.GenerateSelfSignedConfig()
 	if err != nil {
 		log.Fatal(err)
@@ -33,11 +48,11 @@ func main() {
 			log.Printf("Accept error: %v", err)
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, ifce)
 	}
 }
 
-func handleConnection(conn *quic.Conn) {
+func handleConnection(conn *quic.Conn, ifce *water.Interface) {
 	defer conn.CloseWithError(0, "connection closed")
 
 	fmt.Printf("New connection from %v\n", conn.RemoteAddr())
@@ -57,15 +72,13 @@ func handleConnection(conn *quic.Conn) {
 		return
 	}
 
-	fmt.Printf("Login request from %s (OS: %s, Version: %s)\n", loginReq.Token, loginReq.OS, loginReq.ClientVersion)
-
-	// For Phase 1, any token is fine
+	// For Phase 2, we still use static mapping for testing point-to-point
 	resp := protocol.LoginResponse{
 		Type:        protocol.MessageTypeLoginResponse,
 		Status:      "success",
 		AssignedVIP: "10.100.0.2",
 		ServerVIP:   "10.100.0.1",
-		Message:     "Welcome to Phase 1",
+		Message:     "Phase 2 Tunnel Ready",
 	}
 
 	encoder := json.NewEncoder(stream)
@@ -74,15 +87,41 @@ func handleConnection(conn *quic.Conn) {
 		return
 	}
 
-	fmt.Println("Client authenticated successfully")
+	fmt.Println("Client authenticated. Starting packet loop.")
 
-	// Step 2: Receive Datagrams
+	// Step 2: Packet Forwarding Loops
+	
+	// QUIC -> TUN
+	go func() {
+		for {
+			data, err := conn.ReceiveDatagram(context.Background())
+			if err != nil {
+				log.Printf("QUIC Receive error: %v", err)
+				return
+			}
+			_, err = ifce.Write(data)
+			if err != nil {
+				log.Printf("TUN Write error: %v", err)
+				return
+			}
+		}
+	}()
+
+	// TUN -> QUIC
+	// NOTE: In Phase 2 Point-to-Point, we just forward everything from TUN to the only connected client.
+	// Phase 3 will implement proper routing.
+	packet := make([]byte, 1500)
 	for {
-		data, err := conn.ReceiveDatagram(context.Background())
+		n, err := ifce.Read(packet)
 		if err != nil {
-			log.Printf("ReceiveDatagram error: %v", err)
+			log.Printf("TUN Read error: %v", err)
 			return
 		}
-		fmt.Printf("Received datagram (%d bytes): %s\n", len(data), string(data))
+		
+		err = conn.SendDatagram(packet[:n])
+		if err != nil {
+			log.Printf("QUIC Send error: %v", err)
+			return
+		}
 	}
 }

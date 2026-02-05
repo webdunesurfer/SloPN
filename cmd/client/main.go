@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
+	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
 
 func main() {
+	// 1. Setup QUIC Client
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"slopn-protocol"},
@@ -28,7 +29,7 @@ func main() {
 
 	fmt.Println("Connected to server")
 
-	// Step 1: Authentication via Control Stream
+	// 2. Authentication via Control Stream
 	stream, err := conn.OpenStreamSync(context.Background())
 	if err != nil {
 		log.Fatal(err)
@@ -59,17 +60,49 @@ func main() {
 
 	fmt.Printf("Login successful. Assigned VIP: %s\n", loginResp.AssignedVIP)
 
-	// Step 2: Send dummy datagrams
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	// 3. Setup TUN Interface with assigned IP
+	tunCfg := tunutil.Config{
+		Addr: loginResp.AssignedVIP,
+		Mask: "255.255.255.0",
+		MTU:  1280, // Per ADR
+	}
+	ifce, err := tunutil.CreateInterface(tunCfg)
+	if err != nil {
+		log.Fatalf("Error creating TUN: %v. (Note: May require sudo)", err)
+	}
+	defer ifce.Close()
 
-	for range ticker.C {
-		msg := fmt.Sprintf("Ping from client at %s", time.Now().Format(time.Kitchen))
-		err := conn.SendDatagram([]byte(msg))
+	// 4. Packet Forwarding Loops
+	
+	// QUIC -> TUN
+	go func() {
+		for {
+			data, err := conn.ReceiveDatagram(context.Background())
+			if err != nil {
+				log.Printf("QUIC Receive error: %v", err)
+				return
+			}
+			_, err = ifce.Write(data)
+			if err != nil {
+				log.Printf("TUN Write error: %v", err)
+				return
+			}
+		}
+	}()
+
+	// TUN -> QUIC
+	packet := make([]byte, 1500)
+	for {
+		n, err := ifce.Read(packet)
 		if err != nil {
-			log.Printf("SendDatagram error: %v", err)
+			log.Printf("TUN Read error: %v", err)
 			return
 		}
-		fmt.Printf("Sent datagram: %s\n", msg)
+		
+		err = conn.SendDatagram(packet[:n])
+		if err != nil {
+			log.Printf("QUIC Send error: %v", err)
+			return
+		}
 	}
 }

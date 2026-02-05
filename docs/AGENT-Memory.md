@@ -20,9 +20,9 @@
 - **Git:** Initialized and connected to `git@github.com:webdunesurfer/SloPN.git`.
 
 ## Current Status
-- **Phase:** Phase 2 (TUN Interface Integration)
-- **Completed:** Phase 1 (Transport Layer) - Server and Client can connect and exchange QUIC datagrams after a JSON handshake.
-- **Next Action:** Implement TUN interface setup using the `water` library.
+- **Phase:** Phase 3 (Hub-and-Spoke Routing)
+- **Completed:** Phase 2 (Point-to-Point Tunnel) - TUN interfaces are created and configured (on macOS). IP packets are forwarded over QUIC datagrams.
+- **Next Action:** Implement server-side routing logic and dynamic IPAM.
 
 ## Key Constraints
 - **Unreliable Datagrams:** Must use QUIC Datagrams for VPN traffic.
