@@ -1,0 +1,9 @@
+# Binaries
+server
+client
+
+# Logs
+*.log
+
+# OS
+.DS_Store
