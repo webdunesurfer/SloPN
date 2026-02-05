@@ -20,8 +20,9 @@
 - **Git:** Initialized and connected to `git@github.com:webdunesurfer/SloPN.git`.
 
 ## Current Status
-- **Phase:** Phase 1 (Transport Layer)
-- **Next Action:** Initialize `go mod` and begin implementing the QUIC server/client transport.
+- **Phase:** Phase 2 (TUN Interface Integration)
+- **Completed:** Phase 1 (Transport Layer) - Server and Client can connect and exchange QUIC datagrams after a JSON handshake.
+- **Next Action:** Implement TUN interface setup using the `water` library.
 
 ## Key Constraints
 - **Unreliable Datagrams:** Must use QUIC Datagrams for VPN traffic.

@@ -1,0 +1,6 @@
+SloPN Server listening on :4242
+New connection from 127.0.0.1:58492
+Login request from test-token (OS: macos, Version: 0.1.0)
+Client authenticated successfully
+Received datagram (26 bytes): Ping from client at 9:20PM
+Received datagram (26 bytes): Ping from client at 9:20PM
