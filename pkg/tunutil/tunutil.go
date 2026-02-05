@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	Name string // Optional: requested name
 	Addr string
 	Peer string
 	Mask string
@@ -16,9 +17,18 @@ type Config struct {
 }
 
 func CreateInterface(cfg Config) (*water.Interface, error) {
-	ifce, err := water.New(water.Config{
+	waterCfg := water.Config{
 		DeviceType: water.TUN,
-	})
+	}
+
+	// On Linux, we try to set the name if provided
+	if runtime.GOOS == "linux" && cfg.Name != "" {
+		waterCfg.PlatformSpecificParams = water.PlatformSpecificParams{
+			Name: cfg.Name,
+		}
+	}
+
+	ifce, err := water.New(waterCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TUN interface: %v", err)
 	}
@@ -52,6 +62,7 @@ func configureMacOS(ifce *water.Interface, cfg Config) error {
 }
 
 func configureLinux(ifce *water.Interface, cfg Config) error {
+	// On Linux, we assume the interface might have been created with 'nopi'
 	// 1. Set IP address
 	addrCmd := exec.Command("ip", "addr", "add", cfg.Addr+"/24", "dev", ifce.Name())
 	if output, err := addrCmd.CombinedOutput(); err != nil {

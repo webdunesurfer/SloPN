@@ -33,7 +33,17 @@ func main() {
 		log.Fatalf("Failed to initialize session manager: %v", err)
 	}
 
+	if runtime.GOOS == "linux" {
+		fmt.Println("Pre-creating TUN interface with nopi...")
+		exec.Command("ip", "tuntap", "del", "mode", "tun", "name", "tun0").Run()
+		err := exec.Command("ip", "tuntap", "add", "mode", "tun", "name", "tun0", "nopi").Run()
+		if err != nil {
+			fmt.Printf("Warning: failed to pre-create tun0: %v\n", err)
+		}
+	}
+
 	tunCfg := tunutil.Config{
+		Name: "tun0",
 		Addr: sm.GetServerIP().String(),
 		Peer: "10.100.0.2",
 		Mask: "255.255.255.0",
@@ -45,11 +55,12 @@ func main() {
 	}
 	defer ifce.Close()
 
-	// Linux system prep
 	if runtime.GOOS == "linux" {
 		exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Run()
 		exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
+		exec.Command("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0").Run()
 		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0", ifce.Name())).Run()
+		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.accept_local=1", ifce.Name())).Run()
 	}
 
 	tlsConfig, err := certutil.GenerateSelfSignedConfig()
@@ -65,7 +76,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("SloPN Server listening on :%d (Subnet: %s, VIP: %s)\n", *port, *subnet, sm.GetServerIP())
+	fmt.Printf("SloPN Server listening on :%d (VIP: %s)\n", *port, sm.GetServerIP())
 
 	// TUN -> QUIC loop
 	go func() {
@@ -76,7 +87,13 @@ func main() {
 				return
 			}
 
+			summary := iputil.FormatPacketSummary(packet[:n])
 			destIP := iputil.GetDestinationIP(packet[:n])
+
+			if *verbose {
+				fmt.Printf("TUN READ: %s\n", summary)
+			}
+
 			if destIP == nil || destIP.Equal(sm.GetServerIP()) {
 				continue
 			}
@@ -84,8 +101,8 @@ func main() {
 			if conn, ok := sm.GetSession(destIP.String()); ok {
 				payload := iputil.StripHeader(packet[:n])
 				err = conn.SendDatagram(payload)
-				if err == nil && *verbose {
-					fmt.Printf("Routed: %s\n", iputil.FormatPacketSummary(packet[:n]))
+				if err != nil && *verbose {
+					log.Printf("QUIC Send error: %v", err)
 				}
 			}
 		}
@@ -108,15 +125,9 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	defer stream.Close()
 
 	var loginReq protocol.LoginRequest
-	if err := json.NewDecoder(stream).Decode(&loginReq); err != nil {
-		return
-	}
+	json.NewDecoder(stream).Decode(&loginReq)
 
-	vip, err := sm.AllocateIP()
-	if err != nil {
-		return
-	}
-
+	vip, _ := sm.AllocateIP()
 	resp := protocol.LoginResponse{
 		Type: protocol.MessageTypeLoginResponse, Status: "success",
 		AssignedVIP: vip.String(), ServerVIP: sm.GetServerIP().String(),
@@ -124,10 +135,9 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	json.NewEncoder(stream).Encode(resp)
 
 	sm.AddSession(vip, conn)
-	fmt.Printf("Client connected: %s -> %s\n", conn.RemoteAddr(), vip)
+	fmt.Printf("Client connected: %s\n", vip)
 
 	ctx := conn.Context()
-	isLinux := runtime.GOOS == "linux"
 	go func() {
 		defer sm.RemoveSession(vip.String())
 		for {
@@ -138,10 +148,13 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 			if *verbose {
 				fmt.Printf("QUIC RECV [%s]: %s\n", vip, iputil.FormatPacketSummary(data))
 			}
-			payload := iputil.AddHeader(data, isLinux)
-			ifce.Write(payload)
+			// We now expect raw packets, so AddHeader does nothing if passed false
+			payload := iputil.AddHeader(data, false)
+			_, err = ifce.Write(payload)
+			if err != nil && *verbose {
+				log.Printf("TUN Write error: %v (Hex: %s)", err, iputil.HexDump(payload))
+			}
 		}
 	}()
 	<-ctx.Done()
-	fmt.Printf("Client disconnected: %s\n", vip)
 }
