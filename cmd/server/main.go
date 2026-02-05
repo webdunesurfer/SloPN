@@ -17,6 +17,7 @@ func main() {
 	// 1. Setup TUN Interface
 	tunCfg := tunutil.Config{
 		Addr: "10.100.0.1",
+		Peer: "10.100.0.2",
 		Mask: "255.255.255.0",
 		MTU:  1280, // Per ADR
 	}
@@ -99,6 +100,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface) {
 				log.Printf("QUIC Receive error: %v", err)
 				return
 			}
+			fmt.Printf("QUIC -> TUN: %d bytes\n", len(data))
 			_, err = ifce.Write(data)
 			if err != nil {
 				log.Printf("TUN Write error: %v", err)
@@ -108,9 +110,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface) {
 	}()
 
 	// TUN -> QUIC
-	// NOTE: In Phase 2 Point-to-Point, we just forward everything from TUN to the only connected client.
-	// Phase 3 will implement proper routing.
-	packet := make([]byte, 1500)
+	packet := make([]byte, 2000)
 	for {
 		n, err := ifce.Read(packet)
 		if err != nil {
@@ -118,6 +118,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface) {
 			return
 		}
 		
+		fmt.Printf("TUN -> QUIC: %d bytes\n", n)
 		err = conn.SendDatagram(packet[:n])
 		if err != nil {
 			log.Printf("QUIC Send error: %v", err)

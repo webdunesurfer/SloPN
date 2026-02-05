@@ -63,6 +63,7 @@ func main() {
 	// 3. Setup TUN Interface with assigned IP
 	tunCfg := tunutil.Config{
 		Addr: loginResp.AssignedVIP,
+		Peer: loginResp.ServerVIP,
 		Mask: "255.255.255.0",
 		MTU:  1280, // Per ADR
 	}
@@ -82,6 +83,7 @@ func main() {
 				log.Printf("QUIC Receive error: %v", err)
 				return
 			}
+			fmt.Printf("QUIC -> TUN: %d bytes\n", len(data))
 			_, err = ifce.Write(data)
 			if err != nil {
 				log.Printf("TUN Write error: %v", err)
@@ -91,7 +93,7 @@ func main() {
 	}()
 
 	// TUN -> QUIC
-	packet := make([]byte, 1500)
+	packet := make([]byte, 2000)
 	for {
 		n, err := ifce.Read(packet)
 		if err != nil {
@@ -99,6 +101,7 @@ func main() {
 			return
 		}
 		
+		fmt.Printf("TUN -> QUIC: %d bytes\n", n)
 		err = conn.SendDatagram(packet[:n])
 		if err != nil {
 			log.Printf("QUIC Send error: %v", err)
