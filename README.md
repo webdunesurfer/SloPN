@@ -1,32 +1,76 @@
 # SloPN: Custom QUIC-based VPN
 
-SloPN is a modern "Hub-and-Spoke" VPN solution designed for high performance and security. It leverages the **QUIC** protocol and **RFC 9221 (Unreliable Datagrams)** to provide a robust tunneling experience while avoiding the common "TCP-over-TCP" performance issues found in traditional VPNs.
+SloPN is a high-performance "Hub-and-Spoke" VPN built with Go and QUIC (RFC 9221 Datagrams).
 
-## 🚀 Vision
-- **Secure by Default:** TLS 1.3 encryption via QUIC.
-- **High Performance:** Unreliable datagrams for low-latency packet forwarding.
-- **Simple Management:** Hub-and-spoke architecture with dynamic IP assignment.
-- **User Friendly:** Cross-platform GUI built with Wails.
+## 🚀 Getting Started
 
-## 🛠 Tech Stack
-- **Language:** [Go (Golang)](https://go.dev/)
-- **Protocol:** [quic-go](https://github.com/quic-go/quic-go) (RFC 9221)
-- **Tunneling:** [`water`](https://github.com/songgao/water) (TUN/TAP)
-- **GUI:** [Wails](https://wails.io/) (Go + React/Vue)
+### Prerequisites
+- **Go 1.21+**
+- **Root/Admin Privileges:** Required to create virtual TUN interfaces.
+- **Linux:** Requires `ip` command and `sysctl` capabilities.
+- **macOS:** Requires standard `ifconfig` and `route` commands.
 
-## 📖 Navigation for Agents & Developers
-If you are an LLM agent or a new contributor, please refer to these documents in order:
+### Installation
+```bash
+git clone https://github.com/webdunesurfer/SloPN.git
+cd SloPN
+go mod tidy
+```
 
-1.  **[Navigation.md](docs/Navigation.md):** The master map of all Architectural Decision Records (ADRs). Start here to understand the core design decisions (IPAM, Auth, MTU, Routing).
-2.  **[plan.md](docs/plan.md):** Our multi-phase roadmap from transport layer to final GUI.
-3.  **[AGENT-Memory.md](docs/AGENT-Memory.md):** A living document capturing the current technical state, environment details, and immediate next steps.
+## 🖥️ Server Setup (Linux/macOS)
+The server handles IP allocation (IPAM) and routes traffic between clients.
 
-## 🛣 Roadmap
-- **Phase 1:** QUIC Transport & Datagram Exchange (Current)
-- **Phase 2:** TUN Interface Integration
-- **Phase 3:** Multi-client Routing & IPAM
-- **Phase 4:** Authentication & Internet Gateway
-- **Phase 5:** Wails GUI implementation
+### Build
+```bash
+go build -o server ./cmd/server
+```
+
+### Run
+```bash
+sudo ./server [flags]
+```
+
+### Options
+- `-v`: Enable verbose logging (shows every packet summary).
+- `-ip string`: Server Virtual IP (default "10.100.0.1").
+- `-subnet string`: VPN Subnet CIDR (default "10.100.0.0/24").
+- `-port int`: UDP Port to listen on (default 4242).
+
+## 💻 Client Setup
+The client connects to the server and creates a local TUN interface.
+
+### Build
+```bash
+go build -o client ./cmd/client
+```
+
+### Configuration
+Create a `config.json` in the client directory:
+```json
+{
+  "server_addr": "your-server-ip:4242",
+  "token": "your-secret-token"
+}
+```
+
+### Run
+```bash
+sudo ./client [flags]
+```
+
+### Options
+- `-v`: Enable verbose logging.
+- `-config string`: Path to config file (default "config.json").
+
+## 🧪 Testing Connectivity
+Once connected, you can verify the tunnel using standard tools:
+```bash
+# Ping the server from client
+ping 10.100.0.1
+
+# Ping a client from server
+ping 10.100.0.2
+```
 
 ---
 *Maintained by webdunesurfer*

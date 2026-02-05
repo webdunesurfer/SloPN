@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os/exec"
+	"runtime"
 
 	"github.com/quic-go/quic-go"
 	"github.com/songgao/water"
@@ -16,14 +18,21 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
 
+var (
+	verbose = flag.Bool("v", false, "Enable verbose logging")
+	subnet  = flag.String("subnet", "10.100.0.0/24", "VPN Subnet")
+	srvIP   = flag.String("ip", "10.100.0.1", "Server Virtual IP")
+	port    = flag.Int("port", 4242, "UDP Port to listen on")
+)
+
 func main() {
-	// 1. Setup Session Manager (IPAM)
-	sm, err := session.NewManager("10.100.0.0/24", "10.100.0.1")
+	flag.Parse()
+
+	sm, err := session.NewManager(*subnet, *srvIP)
 	if err != nil {
 		log.Fatalf("Failed to initialize session manager: %v", err)
 	}
 
-	// 2. Setup TUN Interface
 	tunCfg := tunutil.Config{
 		Addr: sm.GetServerIP().String(),
 		Peer: "10.100.0.2",
@@ -36,17 +45,19 @@ func main() {
 	}
 	defer ifce.Close()
 
-	// Ensure IP forwarding is on
-	exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Run()
-	exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
+	// Linux system prep
+	if runtime.GOOS == "linux" {
+		exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Run()
+		exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
+		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0", ifce.Name())).Run()
+	}
 
-	// 3. Setup QUIC Server
 	tlsConfig, err := certutil.GenerateSelfSignedConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	listener, err := quic.ListenAddr("0.0.0.0:4242", tlsConfig, &quic.Config{
+	listener, err := quic.ListenAddr(fmt.Sprintf("0.0.0.0:%d", *port), tlsConfig, &quic.Config{
 		EnableDatagrams: true,
 	})
 	if err != nil {
@@ -54,38 +65,27 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("SloPN Server listening on :4242 (Virtual IP: %s)\n", sm.GetServerIP())
+	fmt.Printf("SloPN Server listening on :%d (Subnet: %s, VIP: %s)\n", *port, *subnet, sm.GetServerIP())
 
-	// 4. Packet Routing Loop (TUN -> QUIC)
+	// TUN -> QUIC loop
 	go func() {
-		fmt.Println("Starting TUN -> QUIC routing loop...")
 		packet := make([]byte, 2000)
 		for {
 			n, err := ifce.Read(packet)
 			if err != nil {
-				log.Printf("TUN Read error: %v", err)
 				return
 			}
 
 			destIP := iputil.GetDestinationIP(packet[:n])
-			if destIP == nil {
+			if destIP == nil || destIP.Equal(sm.GetServerIP()) {
 				continue
 			}
 
-			// DEBUG: log every packet read from TUN
-			// fmt.Printf("TUN read: %d bytes for %s\n", n, destIP)
-
-			if destIP.Equal(sm.GetServerIP()) {
-				continue
-			}
-
-			// Route to the correct client session
 			if conn, ok := sm.GetSession(destIP.String()); ok {
-				err = conn.SendDatagram(packet[:n])
-				if err != nil {
-					log.Printf("QUIC Send error to %s: %v", destIP, err)
-				} else {
-					fmt.Printf("Routed %d bytes to %s\n", n, destIP)
+				payload := iputil.StripHeader(packet[:n])
+				err = conn.SendDatagram(payload)
+				if err == nil && *verbose {
+					fmt.Printf("Routed: %s\n", iputil.FormatPacketSummary(packet[:n]))
 				}
 			}
 		}
@@ -94,7 +94,6 @@ func main() {
 	for {
 		conn, err := listener.Accept(context.Background())
 		if err != nil {
-			log.Printf("Accept error: %v", err)
 			continue
 		}
 		go handleConnection(conn, ifce, sm)
@@ -102,70 +101,47 @@ func main() {
 }
 
 func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manager) {
-	fmt.Printf("New connection from %v\n", conn.RemoteAddr())
-
-	// Step 1: Authentication & IP Allocation
 	stream, err := conn.AcceptStream(context.Background())
 	if err != nil {
-		log.Printf("Failed to accept control stream: %v", err)
 		return
 	}
 	defer stream.Close()
 
-	decoder := json.NewDecoder(stream)
 	var loginReq protocol.LoginRequest
-	if err := decoder.Decode(&loginReq); err != nil {
-		log.Printf("Handshake decode error: %v", err)
+	if err := json.NewDecoder(stream).Decode(&loginReq); err != nil {
 		return
 	}
 
-	// Allocate a Virtual IP
 	vip, err := sm.AllocateIP()
 	if err != nil {
-		log.Printf("IP Allocation failed: %v", err)
 		return
 	}
 
 	resp := protocol.LoginResponse{
-		Type:        protocol.MessageTypeLoginResponse,
-		Status:      "success",
-		AssignedVIP: vip.String(),
-		ServerVIP:   sm.GetServerIP().String(),
-		Message:     fmt.Sprintf("Welcome to SloPN. Your IP is %s", vip),
+		Type: protocol.MessageTypeLoginResponse, Status: "success",
+		AssignedVIP: vip.String(), ServerVIP: sm.GetServerIP().String(),
 	}
+	json.NewEncoder(stream).Encode(resp)
 
-	encoder := json.NewEncoder(stream)
-	if err := encoder.Encode(resp); err != nil {
-		log.Printf("Handshake encode error: %v", err)
-		return
-	}
-
-	// Register the session
 	sm.AddSession(vip, conn)
-	
-	// Use a context to handle session cleanup when connection closes
-	fmt.Printf("Client %s authenticated. VIP assigned: %s\n", conn.RemoteAddr(), vip)
+	fmt.Printf("Client connected: %s -> %s\n", conn.RemoteAddr(), vip)
 
-	// Step 2: Receive loop (QUIC -> TUN)
 	ctx := conn.Context()
+	isLinux := runtime.GOOS == "linux"
 	go func() {
 		defer sm.RemoveSession(vip.String())
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
 			if err != nil {
-				log.Printf("QUIC Receive error from %s: %v", vip, err)
 				return
 			}
-			// fmt.Printf("QUIC -> TUN: %d bytes from %s\n", len(data), vip)
-			_, err = ifce.Write(data)
-			if err != nil {
-				log.Printf("TUN Write error: %v", err)
-				return
+			if *verbose {
+				fmt.Printf("QUIC RECV [%s]: %s\n", vip, iputil.FormatPacketSummary(data))
 			}
+			payload := iputil.AddHeader(data, isLinux)
+			ifce.Write(payload)
 		}
 	}()
-	
-	// Keep handleConnection alive as long as the QUIC connection is active
 	<-ctx.Done()
-	fmt.Printf("Session closed for %s (%s)\n", conn.RemoteAddr(), vip)
+	fmt.Printf("Client disconnected: %s\n", vip)
 }
