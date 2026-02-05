@@ -17,9 +17,9 @@ SloPN is a modern "Hub-and-Spoke" VPN solution designed for high performance and
 ## 📖 Navigation for Agents & Developers
 If you are an LLM agent or a new contributor, please refer to these documents in order:
 
-1.  **[Navigation.md](Navigation.md):** The master map of all Architectural Decision Records (ADRs). Start here to understand the core design decisions (IPAM, Auth, MTU, Routing).
-2.  **[plan.md](plan.md):** Our multi-phase roadmap from transport layer to final GUI.
-3.  **[AGENT-Memory.md](AGENT-Memory.md):** A living document capturing the current technical state, environment details, and immediate next steps.
+1.  **[Navigation.md](docs/Navigation.md):** The master map of all Architectural Decision Records (ADRs). Start here to understand the core design decisions (IPAM, Auth, MTU, Routing).
+2.  **[plan.md](docs/plan.md):** Our multi-phase roadmap from transport layer to final GUI.
+3.  **[AGENT-Memory.md](docs/AGENT-Memory.md):** A living document capturing the current technical state, environment details, and immediate next steps.
 
 ## 🛣 Roadmap
 - **Phase 1:** QUIC Transport & Datagram Exchange (Current)
