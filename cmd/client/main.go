@@ -1,4 +1,4 @@
-// Copyright (c) 2026 webdunesurfer <vkh@gmx.at>
+// Author: webdunesurfer <vkh@gmx.at>
 // Licensed under the GNU General Public License v3.0
 
 package main
