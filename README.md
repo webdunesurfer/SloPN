@@ -44,14 +44,23 @@ The client connects to the server and creates a local TUN interface.
 go build -o client ./cmd/client
 ```
 
-### Configuration
-Create a `config.json` in the client directory:
+### Configuration (`config.json`)
+The client uses a JSON configuration file. Default fields:
 ```json
 {
   "server_addr": "your-server-ip:4242",
-  "token": "your-secret-token"
+  "token": "your-secret-token",
+  "verbose": false,
+  "host_route_only": false,
+  "no_route": false
 }
 ```
+
+- `server_addr`: Public IP and Port of the SloPN server.
+- `token`: Authentication token.
+- `verbose`: If true, logs packet flow to console.
+- `host_route_only`: If true, only routes the Server VIP through the tunnel (useful for multi-client testing on one machine).
+- `no_route`: If true, does not modify the system routing table at all.
 
 ### Run
 ```bash
@@ -59,7 +68,7 @@ sudo ./client [flags]
 ```
 
 ### Options
-- `-v`: Enable verbose logging.
+- `-v`: Force verbose logging (overrides config).
 - `-config string`: Path to config file (default "config.json").
 
 ## 🧪 Testing Connectivity

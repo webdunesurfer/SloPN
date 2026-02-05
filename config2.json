@@ -1,4 +1,7 @@
 {
   "server_addr": "38.242.216.161:4242",
-  "token": "test-token"
+  "token": "test-token-2",
+  "verbose": false,
+  "host_route_only": false,
+  "no_route": false
 }

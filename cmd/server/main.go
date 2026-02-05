@@ -23,6 +23,8 @@ var (
 	subnet  = flag.String("subnet", "10.100.0.0/24", "VPN Subnet")
 	srvIP   = flag.String("ip", "10.100.0.1", "Server Virtual IP")
 	port    = flag.Int("port", 4242, "UDP Port to listen on")
+	token   = flag.String("token", "secret-token", "Authentication token required for clients")
+	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 )
 
 func main() {
@@ -61,6 +63,19 @@ func main() {
 		exec.Command("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0").Run()
 		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0", ifce.Name())).Run()
 		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.accept_local=1", ifce.Name())).Run()
+
+		if *enableNAT {
+			fmt.Println("Enabling NAT (MASQUERADE)...")
+			phyIfce, _ := exec.Command("sh", "-c", "ip route show default | awk '/default/ {print $5}'").Output()
+			ifaceName := string(phyIfce)
+			if ifaceName != "" {
+				ifaceName = string(append([]byte(ifaceName[:len(ifaceName)-1]))) // trim newline
+				exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", *subnet, "-o", ifaceName, "-j", "MASQUERADE").Run()
+				exec.Command("iptables", "-A", "FORWARD", "-i", "tun0", "-j", "ACCEPT").Run()
+				exec.Command("iptables", "-A", "FORWARD", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
+				fmt.Printf("NAT enabled on interface: %s\n", ifaceName)
+			}
+		}
 	}
 
 	tlsConfig, err := certutil.GenerateSelfSignedConfig()
@@ -125,9 +140,28 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	defer stream.Close()
 
 	var loginReq protocol.LoginRequest
-	json.NewDecoder(stream).Decode(&loginReq)
+	if err := json.NewDecoder(stream).Decode(&loginReq); err != nil {
+		return
+	}
 
-	vip, _ := sm.AllocateIP()
+	// Validate Token
+	if loginReq.Token != *token {
+		fmt.Printf("Auth failed for %v: invalid token\n", conn.RemoteAddr())
+		resp := protocol.LoginResponse{
+			Type:    protocol.MessageTypeLoginResponse,
+			Status:  "error",
+			Message: "Invalid authentication token",
+		}
+		json.NewEncoder(stream).Encode(resp)
+		conn.CloseWithError(1, "unauthorized")
+		return
+	}
+
+	vip, err := sm.AllocateIP()
+	if err != nil {
+		return
+	}
+
 	resp := protocol.LoginResponse{
 		Type: protocol.MessageTypeLoginResponse, Status: "success",
 		AssignedVIP: vip.String(), ServerVIP: sm.GetServerIP().String(),
