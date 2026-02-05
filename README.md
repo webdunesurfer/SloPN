@@ -1,6 +1,6 @@
 # SloPN: Custom QUIC-based VPN
 
-SloPN is a high-performance "Hub-and-Spoke" VPN built with Go and QUIC (RFC 9221 Datagrams).
+SloPN is a ~~high~~ slow-performance "Hub-and-Spoke" VPN built with Go and QUIC (RFC 9221 Datagrams).
 
 ## 🚀 Getting Started
 
