@@ -82,4 +82,7 @@ ping 10.100.0.2
 ```
 
 ---
-*Maintained by webdunesurfer*
+Copyright (c) 2026 webdunesurfer <vkh@gmx.at>
+
+This project is licensed under the GNU GPLv3 - see the [LICENSE](LICENSE) file for details.
+
