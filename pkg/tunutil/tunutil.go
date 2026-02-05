@@ -15,6 +15,7 @@ type Config struct {
 	Mask            string
 	MTU             int
 	SkipSubnetRoute bool
+	NoRoute         bool // If true, do not touch the routing table at all
 }
 
 func CreateInterface(cfg Config) (*water.Interface, error) {
@@ -46,12 +47,14 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 }
 
 func configureMacOS(ifce *water.Interface, cfg Config) error {
-	fmt.Printf("Configuring %s: local=%s, peer=%s, netmask=%s, mtu=%d\n", ifce.Name(), cfg.Addr, cfg.Peer, cfg.Mask, cfg.MTU)
-	
-	// Command: ifconfig <name> <local> <peer> netmask <mask> mtu <mtu> up
 	cmd := exec.Command("ifconfig", ifce.Name(), cfg.Addr, cfg.Peer, "netmask", cfg.Mask, "mtu", fmt.Sprintf("%d", cfg.MTU), "up")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ifconfig failed: %v (output: %s)", err, string(output))
+	}
+
+	if cfg.NoRoute {
+		fmt.Printf("macOS Interface %s ready (Skipped routing table modification)\n", ifce.Name())
+		return nil
 	}
 
 	if cfg.SkipSubnetRoute {
