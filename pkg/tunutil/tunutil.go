@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Name string // Optional: requested name
-	Addr string
-	Peer string
-	Mask string
-	MTU  int
+	Name            string
+	Addr            string
+	Peer            string
+	Mask            string
+	MTU             int
+	SkipSubnetRoute bool
 }
 
 func CreateInterface(cfg Config) (*water.Interface, error) {
@@ -21,7 +22,6 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 		DeviceType: water.TUN,
 	}
 
-	// On Linux, we try to set the name if provided
 	if runtime.GOOS == "linux" && cfg.Name != "" {
 		waterCfg.PlatformSpecificParams = water.PlatformSpecificParams{
 			Name: cfg.Name,
@@ -46,33 +46,34 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 }
 
 func configureMacOS(ifce *water.Interface, cfg Config) error {
+	fmt.Printf("Configuring %s: local=%s, peer=%s, netmask=%s, mtu=%d\n", ifce.Name(), cfg.Addr, cfg.Peer, cfg.Mask, cfg.MTU)
+	
+	// Command: ifconfig <name> <local> <peer> netmask <mask> mtu <mtu> up
 	cmd := exec.Command("ifconfig", ifce.Name(), cfg.Addr, cfg.Peer, "netmask", cfg.Mask, "mtu", fmt.Sprintf("%d", cfg.MTU), "up")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ifconfig failed: %v (output: %s)", err, string(output))
 	}
 
-	exec.Command("route", "delete", "-net", "10.100.0.0/24").Run()
-	routeCmd := exec.Command("route", "add", "-net", "10.100.0.0/24", "-interface", ifce.Name())
-	if output, err := routeCmd.CombinedOutput(); err != nil {
-		fmt.Printf("Route add warning: %v (output: %s)\n", err, string(output))
+	if cfg.SkipSubnetRoute {
+		exec.Command("route", "delete", cfg.Peer).Run()
+		routeCmd := exec.Command("route", "add", "-host", cfg.Peer, "-interface", ifce.Name())
+		routeCmd.Run()
+		fmt.Printf("macOS Interface %s ready (Host route to %s)\n", ifce.Name(), cfg.Peer)
+	} else {
+		exec.Command("route", "delete", "-net", "10.100.0.0/24").Run()
+		routeCmd := exec.Command("route", "add", "-net", "10.100.0.0/24", "-interface", ifce.Name())
+		routeCmd.Run()
+		fmt.Printf("macOS Interface %s ready (Subnet route)\n", ifce.Name())
 	}
 
-	fmt.Printf("macOS Interface %s ready: Local=%s, Peer=%s\n", ifce.Name(), cfg.Addr, cfg.Peer)
 	return nil
 }
 
 func configureLinux(ifce *water.Interface, cfg Config) error {
-	// On Linux, we assume the interface might have been created with 'nopi'
-	// 1. Set IP address
 	addrCmd := exec.Command("ip", "addr", "add", cfg.Addr+"/24", "dev", ifce.Name())
-	if output, err := addrCmd.CombinedOutput(); err != nil {
-		fmt.Printf("Note: IP assignment warning: %v (output: %s)\n", err, string(output))
-	}
+	addrCmd.Run()
 
-	// 2. Set MTU
 	exec.Command("ip", "link", "set", "dev", ifce.Name(), "mtu", fmt.Sprintf("%d", cfg.MTU)).Run()
-
-	// 3. Bring interface up
 	upCmd := exec.Command("ip", "link", "set", "dev", ifce.Name(), "up")
 	if output, err := upCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ip link up failed: %v (output: %s)", err, string(output))

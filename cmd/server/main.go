@@ -148,7 +148,21 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 			if *verbose {
 				fmt.Printf("QUIC RECV [%s]: %s\n", vip, iputil.FormatPacketSummary(data))
 			}
-			// We now expect raw packets, so AddHeader does nothing if passed false
+
+			// OPTIMIZATION: Spoke-to-Spoke Fast Path
+			// If destination is another client, route directly without TUN
+			destIP := iputil.GetDestinationIP(data)
+			if destIP != nil && !destIP.Equal(sm.GetServerIP()) {
+				if targetConn, ok := sm.GetSession(destIP.String()); ok {
+					if *verbose {
+						fmt.Printf("  -> FAST-PATH: %s -> %s\n", vip, destIP)
+					}
+					targetConn.SendDatagram(data)
+					continue
+				}
+			}
+
+			// Always use false here because we pre-create tun0 with 'nopi'
 			payload := iputil.AddHeader(data, false)
 			_, err = ifce.Write(payload)
 			if err != nil && *verbose {

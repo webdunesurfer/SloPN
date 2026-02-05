@@ -24,6 +24,7 @@ type Config struct {
 var (
 	verbose    = flag.Bool("v", false, "Enable verbose logging")
 	configPath = flag.String("config", "config.json", "Path to config.json")
+	hostRoute  = flag.Bool("host-route", false, "Add host route only (for local multi-client testing)")
 )
 
 func main() {
@@ -67,6 +68,7 @@ func main() {
 	tunCfg := tunutil.Config{
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
 		Mask: "255.255.255.0", MTU: 1280,
+		SkipSubnetRoute: *hostRoute,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
