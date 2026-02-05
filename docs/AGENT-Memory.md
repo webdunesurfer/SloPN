@@ -21,8 +21,9 @@
 
 ## Current Status
 - **Phase:** Phase 3 (Hub-and-Spoke Routing)
-- **Completed:** Phase 2 (Point-to-Point Tunnel) - TUN interfaces are created and configured (on macOS). IP packets are forwarded over QUIC datagrams.
-- **Next Action:** Implement server-side routing logic and dynamic IPAM.
+- **Completed:** Phase 2 (Point-to-Point Tunnel) - Verified TUN packets moving through QUIC tunnel between Local macOS and Remote Ubuntu.
+- **Improved:** Automated host routing on the server and configuration file for the client.
+- **Next Action:** Finalize Phase 2 verification with successful ICMP, then implement full IPAM.
 
 ## Key Constraints
 - **Unreliable Datagrams:** Must use QUIC Datagrams for VPN traffic.

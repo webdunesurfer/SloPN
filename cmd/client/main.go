@@ -4,22 +4,43 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/quic-go/quic-go"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
 
+type Config struct {
+	ServerAddr string `json:"server_addr"`
+	Token      string `json:"token"`
+}
+
 func main() {
+	configPath := flag.String("config", "config.json", "Path to config.json")
+	flag.Parse()
+
+	// 0. Load Config
+	configFile, err := os.Open(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to open config file %s: %v", *configPath, err)
+	}
+	var cfg Config
+	if err := json.NewDecoder(configFile).Decode(&cfg); err != nil {
+		log.Fatalf("Failed to decode config: %v", err)
+	}
+	configFile.Close()
+
 	// 1. Setup QUIC Client
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"slopn-protocol"},
 	}
 
-	conn, err := quic.DialAddr(context.Background(), "localhost:4242", tlsConf, &quic.Config{
+	conn, err := quic.DialAddr(context.Background(), cfg.ServerAddr, tlsConf, &quic.Config{
 		EnableDatagrams: true,
 	})
 	if err != nil {
@@ -27,7 +48,7 @@ func main() {
 	}
 	defer conn.CloseWithError(0, "client exit")
 
-	fmt.Println("Connected to server")
+	fmt.Printf("Connected to server at %s\n", cfg.ServerAddr)
 
 	// 2. Authentication via Control Stream
 	stream, err := conn.OpenStreamSync(context.Background())
@@ -38,7 +59,7 @@ func main() {
 
 	loginReq := protocol.LoginRequest{
 		Type:          protocol.MessageTypeLoginRequest,
-		Token:         "test-token",
+		Token:         cfg.Token,
 		ClientVersion: "0.1.0",
 		OS:            "macos",
 	}

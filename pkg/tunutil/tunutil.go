@@ -3,21 +3,19 @@ package tunutil
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 
 	"github.com/songgao/water"
 )
 
-// Config holds the configuration for the TUN interface
 type Config struct {
-	Addr string // Local VIP, e.g., "10.100.0.1"
-	Peer string // Peer VIP, e.g., "10.100.0.2"
-	Mask string // e.g., "255.255.255.0"
-	MTU  int    // e.g., 1280 (per ADR)
+	Addr string
+	Peer string
+	Mask string
+	MTU  int
 }
 
-// CreateInterface creates and configures a TUN interface
 func CreateInterface(cfg Config) (*water.Interface, error) {
-	// 1. Create the interface
 	ifce, err := water.New(water.Config{
 		DeviceType: water.TUN,
 	})
@@ -27,19 +25,50 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 
 	fmt.Printf("Created TUN interface: %s\n", ifce.Name())
 
-	// 2. Configure the interface (macOS specific utun)
+	switch runtime.GOOS {
+	case "darwin":
+		return ifce, configureMacOS(ifce, cfg)
+	case "linux":
+		return ifce, configureLinux(ifce, cfg)
+	default:
+		return ifce, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+}
+
+func configureMacOS(ifce *water.Interface, cfg Config) error {
+	// macOS ifconfig for TUN usually expects: ifconfig <name> <local> <remote> up
+	// We use the same subnet for both to simplify.
 	cmd := exec.Command("ifconfig", ifce.Name(), cfg.Addr, cfg.Peer, "netmask", cfg.Mask, "mtu", fmt.Sprintf("%d", cfg.MTU), "up")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("failed to configure interface %s: %v (output: %s)", ifce.Name(), err, string(output))
+		return fmt.Errorf("ifconfig failed: %v (output: %s)", err, string(output))
 	}
 
-	fmt.Printf("Interface %s configured: Local=%s, Peer=%s\n", ifce.Name(), cfg.Addr, cfg.Peer)
-
-	// 3. Add explicit route for the subnet
-	routeCmd := exec.Command("route", "add", "-net", "10.100.0.0/24", cfg.Addr)
+	// Add route for the whole 10.100.0.0/24 subnet to this interface
+	exec.Command("route", "delete", "-net", "10.100.0.0/24").Run()
+	routeCmd := exec.Command("route", "add", "-net", "10.100.0.0/24", "-interface", ifce.Name())
 	if output, err := routeCmd.CombinedOutput(); err != nil {
-		fmt.Printf("Note: route add note: %v (output: %s)\n", err, string(output))
+		fmt.Printf("Route add warning: %v (output: %s)\n", err, string(output))
 	}
 
-	return ifce, nil
+	fmt.Printf("macOS Interface %s ready: Local=%s, Peer=%s\n", ifce.Name(), cfg.Addr, cfg.Peer)
+	return nil
+}
+
+func configureLinux(ifce *water.Interface, cfg Config) error {
+	// Linux: ip addr add <addr>/24 dev <name>
+	// We use the subnet CIDR /24 to ensure it's not restricted to PTP
+	exec.Command("ip", "addr", "del", cfg.Addr+"/24", "dev", ifce.Name()).Run()
+	addrCmd := exec.Command("ip", "addr", "add", cfg.Addr+"/24", "dev", ifce.Name())
+	if output, err := addrCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ip addr failed: %v (output: %s)", err, string(output))
+	}
+
+	exec.Command("ip", "link", "set", "dev", ifce.Name(), "mtu", fmt.Sprintf("%d", cfg.MTU)).Run()
+	upCmd := exec.Command("ip", "link", "set", "dev", ifce.Name(), "up")
+	if output, err := upCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ip link up failed: %v (output: %s)", err, string(output))
+	}
+
+	fmt.Printf("Linux Interface %s ready: IP=%s/24\n", ifce.Name(), cfg.Addr)
+	return nil
 }
