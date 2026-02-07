@@ -1,15 +1,18 @@
-# Phase 5: Wails GUI Client
+# Phase 5: GUI & Native Integration
 
-**Goal:** Wrap the macOS CLI client in a user-friendly GUI.
+**Goal:** Transition SloPN from a CLI tool to a professional desktop application for macOS and Windows.
 
-1.  **Wails Setup:** Initialize a Wails project.
-2.  **Backend Integration:** Move Client logic into Wails `App` struct.
-    *   Expose `Connect(config)` and `Disconnect()` methods to frontend.
-    *   Stream logs/stats (upload/download rate) to frontend.
-3.  **Frontend:**
-    *   Simple React/Vue form for Server Address & Key.
-    *   Connect/Disconnect toggle.
-    *   Status indicator.
-4.  **Deliverable:**
-    *   `.app` bundle for macOS.
-    *   **Test:** User clicks "Connect", successful connection to Phase 4 Server.
+## Sub-Phases
+This phase is divided into modular steps to ensure a stable and secure rollout:
+
+1.  **[Phase 5.1: macOS Privileged Helper](phase5.1-macos-helper.md)** - Building the background engine.
+2.  **[Phase 5.2: Wails Dashboard with Svelte](phase5.2-wails-svelte-gui.md)** - Building the user interface.
+3.  **[Phase 5.3: macOS Packaging (.pkg)](phase5.3-macos-packaging.md)** - Creating the installer.
+4.  **[Phase 5.4: Windows Porting](phase5.4-windows-port.md)** - Extending to Windows.
+
+## Architectural Decisions
+All implementations must follow the established ADRs:
+*   [ADR-GUI-IPC: Unix Domain Sockets](../adr/ADR-GUI-IPC.md)
+*   [ADR-GUI-Frontend: Svelte Framework](../adr/ADR-GUI-Frontend.md)
+*   [ADR-GUI-Distribution: Standard Installers](../adr/ADR-GUI-Distribution.md)
+*   [ADR-Helper-Lifecycle: Always-On Service](../adr/ADR-Helper-Lifecycle.md)
