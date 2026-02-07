@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 
@@ -21,16 +22,23 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
 
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 var (
 	verbose = flag.Bool("v", false, "Enable verbose logging")
-	subnet  = flag.String("subnet", "10.100.0.0/24", "VPN Subnet")
-	srvIP   = flag.String("ip", "10.100.0.1", "Server Virtual IP")
+	subnet  = flag.String("subnet", getEnv("SLOPN_SUBNET", "10.100.0.0/24"), "VPN Subnet")
+	srvIP   = flag.String("ip", getEnv("SLOPN_IP", "10.100.0.1"), "Server Virtual IP")
 	port    = flag.Int("port", 4242, "UDP Port to listen on")
-	token   = flag.String("token", "secret-token", "Authentication token required for clients")
+	token   = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 )
 
-const ServerVersion = "0.1.7"
+const ServerVersion = "0.1.9"
 
 func main() {
 	flag.Parse()

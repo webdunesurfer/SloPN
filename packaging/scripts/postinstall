@@ -8,6 +8,9 @@ chmod 755 /Library/PrivilegedHelperTools/slopn-helper
 chown root:wheel /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 chmod 644 /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 
+# Ensure the daemon is unloaded before loading again to force a restart
+launchctl unload /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist 2>/dev/null
+
 # Load the daemon
 launchctl load -w /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 

@@ -8,6 +8,10 @@ export function Disconnect():Promise<string>;
 
 export function GetGUIVersion():Promise<string>;
 
+export function GetLogs():Promise<string>;
+
 export function GetStats():Promise<ipc.Stats>;
 
 export function GetStatus():Promise<ipc.Status>;
+
+export function ShowAbout():Promise<void>;

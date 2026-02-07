@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Unload the existing daemon if it's running
+if [ -f "/Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist" ]; then
+    echo "Unloading existing SloPN helper..."
+    launchctl unload /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist 2>/dev/null
+fi
+
+# Ensure any lingering helper processes are killed
+pkill -f slopn-helper
+
 # Remove existing app to ensure fresh installation of new branding
 if [ -d "/Applications/SloPN.app" ]; then
     rm -rf "/Applications/SloPN.app"
