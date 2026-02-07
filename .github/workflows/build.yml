@@ -57,25 +57,27 @@ jobs:
 
       - name: Build GUI (Wails)
         run: |
-          cd gui
-          # Ensure frontend is clean
-          cd frontend && npm install && npm run build && cd ..
+          # Ensure Wails is in the PATH
+          export PATH=$PATH:$(go env GOPATH)/bin
           
-          # Build using wails CLI with explicit flags
+          cd gui
+          # Check environment
+          wails doctor
+          
+          # Build using wails CLI
+          # We use darwin/amd64 for now to ensure stability in CI, 
+          # or darwin/universal if the runner supports it.
           export CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers"
-          wails build -v 2 -platform darwin/universal
+          wails build -v 2 -platform darwin/amd64 -tags production
           
           # Debug: List what was built
           ls -R build/bin
           
-          # Wails now produces SloPN.app because of wails.json change
-          # We check both possible names just in case
           if [ -d build/bin/SloPN.app ]; then
             echo "SloPN.app found."
-          elif [ -d build/bin/gui.app ]; then
-            mv build/bin/gui.app build/bin/SloPN.app
           else
-            echo "Error: No .app bundle found in build/bin/"
+            echo "Error: SloPN.app not found. Checking for alternative names..."
+            ls build/bin/
             exit 1
           fi
 
