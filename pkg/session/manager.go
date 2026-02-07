@@ -2,8 +2,10 @@ package session
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/quic-go/quic-go"
 )
@@ -18,8 +20,9 @@ type Session struct {
 type Manager struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session // Key: VIP string (e.g., "10.100.0.2")
-	ipPool   chan net.IP
+	ipPool   []net.IP            // Slice of available IPs for random selection
 	serverIP net.IP
+	rng      *rand.Rand
 }
 
 // NewManager creates a new session manager with a pool of available IPs
@@ -34,7 +37,7 @@ func NewManager(subnet string, serverIP string) (*Manager, error) {
 		return nil, err
 	}
 
-	pool := make(chan net.IP, 253) // Max for /24
+	var pool []net.IP
 	
 	// Populate pool, skipping network, broadcast, and server IP
 	for ip := ipNet.IP.Mask(ipNet.Mask); ipNet.Contains(ip); inc(ip) {
@@ -45,29 +48,42 @@ func NewManager(subnet string, serverIP string) (*Manager, error) {
 		if currentIP[3] == 0 || currentIP[3] == 255 || currentIP.Equal(sIP) {
 			continue
 		}
-		pool <- currentIP
+		pool = append(pool, currentIP)
 	}
 
 	return &Manager{
 		sessions: make(map[string]*Session),
 		ipPool:   pool,
 		serverIP: sIP,
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}, nil
 }
 
-// AllocateIP gets an available IP from the pool
+// AllocateIP gets a random available IP from the pool
 func (m *Manager) AllocateIP() (net.IP, error) {
-	select {
-	case ip := <-m.ipPool:
-		return ip, nil
-	default:
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.ipPool) == 0 {
 		return nil, fmt.Errorf("IP pool exhausted")
 	}
+
+	// Pick a random index
+	idx := m.rng.Intn(len(m.ipPool))
+	ip := m.ipPool[idx]
+
+	// Remove from pool by swapping with last element
+	m.ipPool[idx] = m.ipPool[len(m.ipPool)-1]
+	m.ipPool = m.ipPool[:len(m.ipPool)-1]
+
+	return ip, nil
 }
 
 // ReleaseIP returns an IP to the pool
 func (m *Manager) ReleaseIP(ip net.IP) {
-	m.ipPool <- ip
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ipPool = append(m.ipPool, ip)
 }
 
 // AddSession registers a new client
@@ -85,7 +101,7 @@ func (m *Manager) RemoveSession(vip string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.sessions[vip]; ok {
-		m.ReleaseIP(net.ParseIP(vip))
+		m.ipPool = append(m.ipPool, net.ParseIP(vip))
 		delete(m.sessions, vip)
 	}
 }
