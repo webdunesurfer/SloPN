@@ -58,13 +58,26 @@ jobs:
       - name: Build GUI (Wails)
         run: |
           cd gui
-          # Wails build handles bundle creation and frontend build
-          CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers" wails build -tags production
+          # Ensure frontend is clean
+          cd frontend && npm install && npm run build && cd ..
           
-          # Rename to SloPN.app
-          mv build/bin/gui.app build/bin/SloPN.app
-          # Ensure binary inside is named correctly if needed (Wails usually names it after the project)
-          # but we will stick to what Wails produces for stability.
+          # Build using wails CLI with explicit flags
+          export CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers"
+          wails build -v 2 -platform darwin/universal
+          
+          # Debug: List what was built
+          ls -R build/bin
+          
+          # Wails now produces SloPN.app because of wails.json change
+          # We check both possible names just in case
+          if [ -d build/bin/SloPN.app ]; then
+            echo "SloPN.app found."
+          elif [ -d build/bin/gui.app ]; then
+            mv build/bin/gui.app build/bin/SloPN.app
+          else
+            echo "Error: No .app bundle found in build/bin/"
+            exit 1
+          fi
 
       - name: Prepare Packaging Payload
         run: |
