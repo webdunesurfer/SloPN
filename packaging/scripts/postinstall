@@ -11,6 +11,17 @@ chmod 644 /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 # Ensure the daemon is unloaded before loading again to force a restart
 launchctl unload /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist 2>/dev/null
 
+# Ask user for Server Address and Token via AppleScript
+# Note: This runs as root, so we use 'as user' logic if needed, but standard dialog usually works.
+USER_SERVER=$(osascript -e 'display dialog "Enter SloPN Server Address (e.g. 1.2.3.4:4242):" default answer "" with title "SloPN Configuration" with icon note' -e 'text returned of result' 2>/dev/null)
+USER_TOKEN=$(osascript -e 'display dialog "Enter SloPN Auth Token:" default answer "" with title "SloPN Configuration" with icon note with hidden answer' -e 'text returned of result' 2>/dev/null)
+
+# Store these in a system-wide config if helper supports it, or just pass to GUI via a shared file
+# For now, we will create a global config file that both Helper and GUI can read.
+mkdir -p /Library/Application\ Support/SloPN
+echo "{\"server\":\"$USER_SERVER\", \"token\":\"$USER_TOKEN\"}" > "/Library/Application Support/SloPN/config.json"
+chmod 644 "/Library/Application Support/SloPN/config.json"
+
 # Load the daemon
 launchctl load -w /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 

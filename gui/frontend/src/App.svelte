@@ -1,12 +1,18 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { Connect, Disconnect, GetStatus, GetGUIVersion } from '../wailsjs/go/main/App';
+  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig } from '../wailsjs/go/main/App';
   import { EventsOn } from '../wailsjs/runtime/runtime';
 
-  let server = "38.242.216.161:4242";
-  let token = "8a1b06c4-13a4-4b00-a0e4-79d9ff804eb0";
-  let fullTunnel = true;
+  let server = localStorage.getItem("slopn_server") || "";
+  let token = localStorage.getItem("slopn_token") || "";
+  let fullTunnel = localStorage.getItem("slopn_full") === "false" ? false : true;
   let guiVersion = "0.1.9";
+
+  $: {
+    localStorage.setItem("slopn_server", server);
+    localStorage.setItem("slopn_token", token);
+    localStorage.setItem("slopn_full", fullTunnel);
+  }
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
   let stats = { bytes_sent: 0, bytes_recv: 0, uptime_seconds: 0 };
@@ -36,6 +42,13 @@
   onMount(async () => {
     // Fetch GUI version
     guiVersion = await GetGUIVersion();
+
+    // If localStorage is empty, try to get config from installer
+    if (!server || !token) {
+      const initConfig = await GetInitialConfig();
+      if (!server && initConfig.server) server = initConfig.server;
+      if (!token && initConfig.token) token = initConfig.token;
+    }
 
     // Initial status fetch
     try {

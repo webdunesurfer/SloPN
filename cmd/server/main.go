@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -154,7 +155,8 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 
 	// Validate Token
 	if loginReq.Token != *token {
-		fmt.Printf("Auth failed for %v: invalid token\n", conn.RemoteAddr())
+		remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+		fmt.Printf("[AUTH_FAILURE] %s: invalid token\n", remoteIP)
 		resp := protocol.LoginResponse{
 			Type:          protocol.MessageTypeLoginResponse,
 			Status:        "error",

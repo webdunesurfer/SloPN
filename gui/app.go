@@ -46,6 +46,23 @@ func (a *App) GetGUIVersion() string {
 	return GUIVersion
 }
 
+type InitialConfig struct {
+	Server string `json:"server"`
+	Token  string `json:"token"`
+}
+
+// GetInitialConfig reads the config file created by the installer
+func (a *App) GetInitialConfig() InitialConfig {
+	path := "/Library/Application Support/SloPN/config.json"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return InitialConfig{}
+	}
+	var config InitialConfig
+	json.Unmarshal(data, &config)
+	return config
+}
+
 // ShowAbout displays the application information
 func (a *App) ShowAbout() {
 	runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{

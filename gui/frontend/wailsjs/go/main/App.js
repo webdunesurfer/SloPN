@@ -14,6 +14,10 @@ export function GetGUIVersion() {
   return window['go']['main']['App']['GetGUIVersion']();
 }
 
+export function GetInitialConfig() {
+  return window['go']['main']['App']['GetInitialConfig']();
+}
+
 export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }

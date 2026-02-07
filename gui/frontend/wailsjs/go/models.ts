@@ -41,3 +41,22 @@ export namespace ipc {
 
 }
 
+export namespace main {
+	
+	export class InitialConfig {
+	    server: string;
+	    token: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new InitialConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.server = source["server"];
+	        this.token = source["token"];
+	    }
+	}
+
+}
+
