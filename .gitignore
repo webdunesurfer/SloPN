@@ -7,4 +7,5 @@ config2.json
 /packaging/payload/
 
 # OS
-.DS_Store
+.DS_Store*.log
+bin/logs/

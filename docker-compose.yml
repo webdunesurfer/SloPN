@@ -13,6 +13,6 @@ services:
       - SLOPN_TOKEN=secret-token
       - SLOPN_NAT=true
       - SLOPN_VERBOSE=false
-    command: ["-nat", "-token", "8a1b06c4-13a4-4b00-a0e4-79d9ff804eb0"]
+    command: ["-nat", "-token", "your-secret-token"]
     # We may need privileged mode for some sysctl if cap_add is not enough
     # privileged: true
