@@ -2,17 +2,8 @@
 config.json
 config2.json
 
-# Binaries
-/server
-/client
-/server_linux
-/slopn-helper
-/slopnctl
-gui/gui
-
-# Logs
-*.log
-*.stdout
+# Build Artifacts
+/bin/
 
 # OS
 .DS_Store
