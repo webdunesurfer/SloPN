@@ -16,7 +16,7 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const GUIVersion = "0.1.6"
+const GUIVersion = "0.1.7"
 
 // App struct
 type App struct {
