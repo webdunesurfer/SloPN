@@ -36,25 +36,30 @@ sudo ./server [flags]
 - `-subnet string`: VPN Subnet CIDR (default "10.100.0.0/24").
 - `-port int`: UDP Port to listen on (default 4242).
 
-## 💻 Client Setup
-The client connects to the server and creates a local TUN interface.
+## 💻 Client & GUI Setup
+The client architecture has evolved into a **Privileged Helper** and a **Svelte-based GUI**.
 
-### Build
+### Build Helper (Engine)
 ```bash
-go build -o client ./cmd/client
+go build -o slopn-helper ./cmd/helper
+sudo ./slopn-helper
 ```
 
-### Configuration (`config.json`)
-The client uses a JSON configuration file. Default fields:
-```json
-{
-  "server_addr": "your-server-ip:4242",
-  "token": "your-secret-token",
-  "verbose": false,
-  "host_route_only": false,
-  "no_route": false
-}
+### Build GUI (macOS/Windows/Linux)
+Requires [Wails](https://wails.io/):
+```bash
+cd gui
+wails build
 ```
+
+### Versioning
+All components (Server, Helper, GUI) now support unified versioning (currently `v0.1.1`) displayed in the GUI dashboard.
+
+### Configuration
+The GUI allows real-time configuration of:
+- **Server Address**: IP and Port of the SloPN server.
+- **Auth Token**: Secure token for connection.
+- **Full Tunnel**: Toggle between routing all traffic or just VPN traffic.
 
 - `server_addr`: Public IP and Port of the SloPN server.
 - `token`: Authentication token.

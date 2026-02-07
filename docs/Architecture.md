@@ -22,20 +22,28 @@ SloPN (Slow Private Network) is a QUIC-based Layer 3 VPN designed for simplicity
 - The server's Session Manager maps VIPs to specific QUIC connections.
 - **Isolation Level:** Clients can currently talk to each other if the server's "Spoke-to-Spoke" fast path is enabled, but they are isolated from the server's local network unless explicitly routed.
 
+## GUI & Helper Architecture
+Starting from Phase 5, the client is split into two components to handle macOS/Linux security models:
+- **Privileged Helper (Engine):** Runs as `root` to manage TUN interfaces and system routing. Listens on a local TCP port (`127.0.0.1:54321`) for IPC commands.
+- **GUI Dashboard (Wails):** Runs in user space, providing a Svelte-based interface for controlling the helper.
+
+## IPC Mechanism
+- **TCP Bridge:** Communication between the GUI and Helper uses a local TCP socket. This bypasses macOS sandbox restrictions that often block Unix Domain Sockets for App Bundles.
+- **JSON Protocol:** Commands (`connect`, `disconnect`, `status`) and real-time statistics are exchanged as JSON objects.
+
 ## OS Specifics
-### macOS (Client)
-- Uses `/dev/tunX` via the `water` library.
-- Routing is managed via the `route` command (e.g., `route add default ...`).
-- Gateway detection uses `route -n get default`.
+### macOS
+- **Helper:** Uses `/dev/tunX` and manual `route` management.
+- **GUI:** Wails-based Svelte application.
+- **IPC:** TCP port 54321.
 
 ### Linux (Server)
-- Uses `tuntap` interfaces.
-- Uses `sysctl` to enable `ip_forward`.
-- Uses `iptables` with `MASQUERADE` for NAT/Internet access.
-- Pre-creates interfaces with `nopi` (No Packet Information) to match Linux kernel expectations.
+- **Forwarding:** Uses `sysctl` for `net.ipv4.ip_forward`.
+- **NAT:** Uses `iptables` MASQUERADE for internet exit.
 
 ## Component Overview
-- **`pkg/protocol`:** Defines the JSON handshake messages.
-- **`pkg/tunutil`:** Cross-platform abstraction for creating and configuring TUN interfaces.
-- **`pkg/session`:** Server-side logic for IP allocation and connection tracking.
-- **`pkg/iputil`:** Helpers for parsing raw IP headers and adding/stripping OS-specific headers.
+- **`pkg/protocol`:** QUIC Handshake messages.
+- **`pkg/ipc`:** Inter-Process Communication messages between GUI and Helper.
+- **`pkg/tunutil`:** TUN interface abstraction.
+- **`pkg/session`:** Server-side connection management.
+- **`pkg/iputil`:** IP header manipulation and packet summaries.

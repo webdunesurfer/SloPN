@@ -30,6 +30,8 @@ var (
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 )
 
+const ServerVersion = "0.1.1"
+
 func main() {
 	flag.Parse()
 
@@ -151,9 +153,10 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	if loginReq.Token != *token {
 		fmt.Printf("Auth failed for %v: invalid token\n", conn.RemoteAddr())
 		resp := protocol.LoginResponse{
-			Type:    protocol.MessageTypeLoginResponse,
-			Status:  "error",
-			Message: "Invalid authentication token",
+			Type:          protocol.MessageTypeLoginResponse,
+			Status:        "error",
+			Message:       "Invalid authentication token",
+			ServerVersion: ServerVersion,
 		}
 		json.NewEncoder(stream).Encode(resp)
 		conn.CloseWithError(1, "unauthorized")
@@ -162,12 +165,22 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 
 	vip, err := sm.AllocateIP()
 	if err != nil {
+		fmt.Printf("IP allocation failed for %v: %v\n", conn.RemoteAddr(), err)
+		resp := protocol.LoginResponse{
+			Type:          protocol.MessageTypeLoginResponse,
+			Status:        "error",
+			Message:       "Server failed to allocate IP",
+			ServerVersion: ServerVersion,
+		}
+		json.NewEncoder(stream).Encode(resp)
+		conn.CloseWithError(2, "ip allocation failed")
 		return
 	}
 
 	resp := protocol.LoginResponse{
 		Type: protocol.MessageTypeLoginResponse, Status: "success",
 		AssignedVIP: vip.String(), ServerVIP: sm.GetServerIP().String(),
+		ServerVersion: ServerVersion,
 	}
 	json.NewEncoder(stream).Encode(resp)
 

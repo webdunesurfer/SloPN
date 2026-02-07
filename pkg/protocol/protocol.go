@@ -15,10 +15,11 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Type        MessageType `json:"type"`
-	Status      string      `json:"status"` // "success" or "error"
-	AssignedVIP string      `json:"assigned_vip,omitempty"`
-	SubnetMask  string      `json:"subnet_mask,omitempty"`
-	ServerVIP   string      `json:"server_vip,omitempty"`
-	Message     string      `json:"message,omitempty"`
+	Type          MessageType `json:"type"`
+	Status        string      `json:"status"` // "success" or "error"
+	AssignedVIP   string      `json:"assigned_vip,omitempty"`
+	SubnetMask    string      `json:"subnet_mask,omitempty"`
+	ServerVIP     string      `json:"server_vip,omitempty"`
+	ServerVersion string      `json:"server_version,omitempty"`
+	Message       string      `json:"message,omitempty"`
 }

@@ -1,12 +1,18 @@
 # Configs
 config.json
+config2.json
 
 # Binaries
 server
 client
+server_linux
+slopn-helper
+slopnctl
+gui/gui
 
 # Logs
 *.log
+*.stdout
 
 # OS
 .DS_Store
