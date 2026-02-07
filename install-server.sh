@@ -40,7 +40,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "unknown")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.1.9")
 PUBLIC_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
 
 # 4. Build and Run Docker Container
@@ -51,7 +51,7 @@ docker build -t slopn-server .
 docker stop slopn-server &>/dev/null || true
 docker rm slopn-server &>/dev/null || true
 
-# Run the container (Single line to prevent pipe-bash issues)
+# Run the container (Using single line and explicit image name)
 docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true slopn-server -nat
 
 # 5. Final Report
