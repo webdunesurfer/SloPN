@@ -193,6 +193,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 			if err != nil {
 				return
 			}
+			// Only log data path in verbose mode
 			if *verbose {
 				fmt.Printf("QUIC RECV [%s]: %s\n", vip, iputil.FormatPacketSummary(data))
 			}

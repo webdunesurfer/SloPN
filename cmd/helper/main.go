@@ -29,6 +29,7 @@ import (
 const (
 	TCPAddr       = "0.0.0.0:54321"
 	HelperVersion = "0.1.3"
+	LogPath       = "/var/log/slopn-helper.log"
 )
 
 type Helper struct {
@@ -78,7 +79,7 @@ func (h *Helper) getStats() ipc.Stats {
 }
 
 func (h *Helper) getLogs() string {
-	out, err := exec.Command("tail", "-n", "100", "helper.log").Output()
+	out, err := exec.Command("tail", "-n", "100", LogPath).Output()
 	if err != nil {
 		return "Failed to read logs: " + err.Error()
 	}
@@ -86,7 +87,7 @@ func (h *Helper) getLogs() string {
 }
 
 func logHelper(msg string) {
-	f, _ := os.OpenFile("helper.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, _ := os.OpenFile(LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if f != nil {
 		fmt.Fprintf(f, "[%s] [v%s] %s\n", time.Now().Format("15:04:05"), HelperVersion, msg)
 		f.Sync()
