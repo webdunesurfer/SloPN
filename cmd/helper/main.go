@@ -179,7 +179,7 @@ func (h *Helper) disconnect() {
 	h.assignedVIP = ""
 	h.serverVIP = ""
 	h.serverVersion = ""
-	h.startTime = time.Now() // This was time.Time{} in old_string, but checking context
+	h.conn = nil
 	h.startTime = time.Time{}
 }
 
@@ -229,6 +229,10 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		if r := recover(); r != nil {
 			logHelper(fmt.Sprintf("[VPN] Loop Panic: %v", r))
 		}
+
+		if h.conn != nil {
+			h.conn.CloseWithError(0, "logout")
+		}
 		
 		logHelper("[VPN] Cleaning up routing...")
 		if full && runtime.GOOS == "darwin" {
@@ -277,7 +281,9 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		logHelper(fmt.Sprintf("[VPN] QUIC Dial error: %v", err))
 		return
 	}
-	defer conn.CloseWithError(0, "exit")
+	h.mu.Lock()
+	h.conn = conn
+	h.mu.Unlock()
 
 	stream, err := conn.OpenStreamSync(ctx)
 	if err != nil {

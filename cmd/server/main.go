@@ -96,7 +96,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("SloPN Server listening on :%d (VIP: %s)\n", *port, sm.GetServerIP())
+	fmt.Printf("SloPN Server v%s listening on :%d (VIP: %s)\n", ServerVersion, *port, sm.GetServerIP())
 
 	// TUN -> QUIC loop
 	go func() {
@@ -110,15 +110,10 @@ func main() {
 			summary := iputil.FormatPacketSummary(packet[:n])
 			destIP := iputil.GetDestinationIP(packet[:n])
 
-			if *verbose {
-				fmt.Printf("TUN READ: %s\n", summary)
-			}
-
-			if destIP == nil || destIP.Equal(sm.GetServerIP()) {
-				continue
-			}
-
 			if conn, ok := sm.GetSession(destIP.String()); ok {
+				if *verbose {
+					fmt.Printf("TUN READ: %s\n", summary)
+				}
 				payload := iputil.StripHeader(packet[:n])
 				err = conn.SendDatagram(payload)
 				if err != nil && *verbose {
@@ -189,7 +184,10 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 
 	ctx := conn.Context()
 	go func() {
-		defer sm.RemoveSession(vip.String())
+		defer func() {
+			sm.RemoveSession(vip.String())
+			fmt.Printf("Client disconnected: %s\n", vip)
+		}()
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
 			if err != nil {

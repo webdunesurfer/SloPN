@@ -3,11 +3,11 @@ config.json
 config2.json
 
 # Binaries
-server
-client
-server_linux
-slopn-helper
-slopnctl
+/server
+/client
+/server_linux
+/slopn-helper
+/slopnctl
 gui/gui
 
 # Logs
