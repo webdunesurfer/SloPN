@@ -16,7 +16,7 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const GUIVersion = "0.1.4"
+const GUIVersion = "0.1.5"
 
 // App struct
 type App struct {
@@ -51,7 +51,7 @@ func (a *App) ShowAbout() {
 	runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
 		Type:    runtime.InfoDialog,
 		Title:   "About SloPN",
-		Message: fmt.Sprintf("SloPN Dashboard v%s\n\n© 2026 webdunesurfer\nLicensed under GNU GPLv3", GUIVersion),
+		Message: fmt.Sprintf("SloPN OS X GUI v%s\n\n© 2026 webdunesurfer\nLicensed under GNU GPLv3", GUIVersion),
 	})
 }
 

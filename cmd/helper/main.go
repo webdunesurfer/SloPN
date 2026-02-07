@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "0.0.0.0:54321"
-	HelperVersion = "0.1.4"
+	HelperVersion = "0.1.5"
 	LogPath       = "/var/log/slopn-helper.log"
 )
 
