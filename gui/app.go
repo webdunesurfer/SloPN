@@ -46,6 +46,15 @@ func (a *App) GetGUIVersion() string {
 	return GUIVersion
 }
 
+// ShowAbout displays the application information
+func (a *App) ShowAbout() {
+	runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Type:    runtime.InfoDialog,
+		Title:   "About SloPN",
+		Message: fmt.Sprintf("SloPN Dashboard v%s\n\n© 2026 webdunesurfer\nLicensed under GNU GPLv3", GUIVersion),
+	})
+}
+
 // callHelper sends a command to the privileged helper with retries
 func (a *App) callHelper(req ipc.Request) (*ipc.Response, error) {
 	var conn net.Conn

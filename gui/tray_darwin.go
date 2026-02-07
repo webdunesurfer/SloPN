@@ -33,6 +33,13 @@ func tray_callback_quit() {
 	}
 }
 
+//export tray_callback_about
+func tray_callback_about() {
+	if wailsApp != nil {
+		wailsApp.ShowAbout()
+	}
+}
+
 func initTray(title string) {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))

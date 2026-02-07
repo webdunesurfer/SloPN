@@ -20,7 +20,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:             "SloPN VPN",
+		Title:             "SloPN",
 		Width:             800,
 		Height:            650,
 		DisableResize:     true,

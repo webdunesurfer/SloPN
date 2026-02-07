@@ -2,10 +2,12 @@
 
 extern void tray_callback_show();
 extern void tray_callback_quit();
+extern void tray_callback_about();
 
 @interface SloPNTrayDelegate : NSObject
 - (void)onShow:(id)sender;
 - (void)onQuit:(id)sender;
+- (void)onAbout:(id)sender;
 @end
 
 @implementation SloPNTrayDelegate
@@ -14,6 +16,9 @@ extern void tray_callback_quit();
 }
 - (void)onQuit:(id)sender {
     tray_callback_quit();
+}
+- (void)onAbout:(id)sender {
+    tray_callback_about();
 }
 @end
 
@@ -45,6 +50,7 @@ void init_tray(const char* title) {
         
         NSMenu *menu = [[NSMenu alloc] init];
         [menu addItemWithTitle:@"Show Dashboard" action:@selector(onShow:) keyEquivalent:@""];
+        [menu addItemWithTitle:@"About SloPN" action:@selector(onAbout:) keyEquivalent:@""];
         [menu addItem:[NSMenuItem separatorItem]];
         [menu addItemWithTitle:@"Quit" action:@selector(onQuit:) keyEquivalent:@"q"];
         
