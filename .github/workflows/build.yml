@@ -1,0 +1,125 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux:
+    name: Build Linux Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Server
+        run: |
+          mkdir -p bin
+          GOOS=linux GOARCH=amd64 go build -o bin/server_linux ./cmd/server/main.go
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-linux
+          path: bin/server_linux
+
+  build-macos:
+    name: Build macOS Installer
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Helper
+        run: |
+          mkdir -p bin
+          go build -o bin/slopn-helper ./cmd/helper/main.go
+
+      - name: Build GUI (Wails)
+        run: |
+          cd gui
+          # Install frontend dependencies
+          cd frontend && npm install && npm run build && cd ..
+          # Build production binary manually to ensure all flags are correct
+          CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers" go build -tags production -o build/bin/SloPN .
+          # Assemble .app
+          cp -r build/bin/gui.app build/bin/SloPN.app
+          mv build/bin/SloPN build/bin/SloPN.app/Contents/MacOS/gui
+
+      - name: Prepare Packaging Payload
+        run: |
+          mkdir -p packaging/payload/Applications
+          mkdir -p packaging/payload/Library/PrivilegedHelperTools
+          mkdir -p packaging/payload/Library/LaunchDaemons
+          
+          cp -r gui/build/bin/SloPN.app packaging/payload/Applications/
+          cp bin/slopn-helper packaging/payload/Library/PrivilegedHelperTools/
+          cp packaging/com.webdunesurfer.slopn.helper.plist packaging/payload/Library/LaunchDaemons/
+          
+          # Clean up resource fork files that cause PKG issues
+          find packaging/payload -name "._*" -delete
+
+      - name: Create Component Package
+        run: |
+          # Use existing component plist if present, otherwise generate
+          if [ ! -f bin/SloPN-App.plist ]; then
+            pkgbuild --analyze --root packaging/payload bin/SloPN-App.plist
+            # Simple sed to disable relocation in generated plist
+            sed -i '' 's/<true\/>/<false\/>/g' bin/SloPN-App.plist
+          fi
+          
+          pkgbuild --root packaging/payload 
+                   --install-location / 
+                   --component-plist bin/SloPN-App.plist 
+                   --scripts packaging/scripts 
+                   --identifier com.webdunesurfer.slopn 
+                   --version 0.1.3 
+                   bin/SloPN-Component.pkg
+
+      - name: Create Final Distribution Package
+        run: |
+          productbuild --package bin/SloPN-Component.pkg bin/SloPN-Installer.pkg
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SloPN-MacOS-Installer
+          path: bin/SloPN-Installer.pkg
+
+  release:
+    name: Create Release
+    needs: [build-linux, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            server-linux/server_linux
+            SloPN-MacOS-Installer/SloPN-Installer.pkg
+          draft: true
+          generate_release_notes: true
