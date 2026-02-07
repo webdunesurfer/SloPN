@@ -1,100 +1,62 @@
-# SloPN: Custom QUIC-based VPN
+# SloPN: QUIC-based Layer 3 VPN
 
-SloPN is a ~~high~~ slow-performance "Hub-and-Spoke" VPN built with Go and QUIC (RFC 9221 Datagrams).
+SloPN (Slow Private Network) is a modular, high-security VPN built with Go and QUIC. It utilizes RFC 9221 Datagrams to provide a robust tunneling experience that avoids the "TCP-over-TCP" meltdown common in older VPN protocols.
 
-## 🚀 Getting Started
+## 📖 Documentation Hub
 
-### Prerequisites
-- **Go 1.21+**
-- **Root/Admin Privileges:** Required to create virtual TUN interfaces.
-- **Linux:** Requires `ip` command and `sysctl` capabilities.
-- **macOS:** Requires standard `ifconfig` and `route` commands.
+For detailed information on various aspects of the project, please refer to the following documents:
 
-### Installation
+### 🏛️ Architecture & Design
+- **[System Architecture](docs/Architecture.md)**: High-level overview of the protocol, data flow, and components.
+- **[ADR Index](docs/adr/)**: Architectural Decision Records explaining the *why* behind key technical choices.
+
+### 🛠️ Development & Operations
+- **[Build and Release Guide](docs/build-and-release.md)**: Comprehensive instructions for local building, packaging, and CI/CD.
+- **[GUI Dashboard](docs/gui-dashboard.md)**: Details on the Wails/Svelte-based user interface.
+- **[Frontend Development](docs/frontend-development.md)**: Specifics on the Svelte frontend environment and tooling.
+- **[Refactoring Plan](docs/RefactoringPlan.md)**: Current roadmap for code improvements and technical debt.
+
+### 📈 Project Roadmap
+- **[Development Plan](docs/plan.md)**: Overall strategy and high-level milestones.
+- **[Implementation Phases](docs/phases/)**: Step-by-step breakdown of the project's evolution from transport to GUI.
+
+---
+
+## 🚀 Quick Start (macOS)
+
+### 1. Installation via Installer
+The easiest way to get started on macOS is using the pre-built installer:
+1. Download `SloPN-Installer.pkg` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
+2. Run the installer (requires administrator privileges).
+3. Open **SloPN** from your Applications folder.
+
+### 2. Manual Development Setup
 ```bash
 git clone https://github.com/webdunesurfer/SloPN.git
 cd SloPN
 go mod tidy
 ```
+Refer to the **[Build and Release Guide](docs/build-and-release.md)** for compilation instructions.
 
-## 🖥️ Server Setup (Linux/macOS)
-The server handles IP allocation (IPAM) and routes traffic between clients.
+---
 
-### Build
-```bash
-go build -o server ./cmd/server
-```
+## 💻 Component Overview
 
-### Run
-```bash
-sudo ./server [flags]
-```
-
-### Options
-- `-v`: Enable verbose logging (shows every packet summary).
-- `-ip string`: Server Virtual IP (default "10.100.0.1").
-- `-subnet string`: VPN Subnet CIDR (default "10.100.0.0/24").
-- `-port int`: UDP Port to listen on (default 4242).
-
-## 💻 Client & GUI Setup
-The client architecture has evolved into a **Privileged Helper** and a **Svelte-based GUI**.
-
-### Build Helper (Engine)
-```bash
-go build -o slopn-helper ./cmd/helper
-sudo ./slopn-helper
-```
-
-### Build GUI (macOS/Windows/Linux)
-Requires [Wails](https://wails.io/):
-```bash
-cd gui
-wails build
-```
-
-### Versioning
-All components (Server, Helper, GUI) now support unified versioning (currently `v0.1.3`) displayed in the GUI dashboard.
-
-### 🛠️ Key GUI Features
-- **Dynamic Tray Icon**: Native macOS tray support with status-aware coloring (Green when protected).
-- **Log Streaming**: Real-time Engine logs visible directly in the dashboard.
-- **Performance Graphs**: Visual SVG sparklines for upload and download speeds.
-- **Hide on Close**: Standard macOS behavior where closing the window keeps the app in the tray.
-- **Graceful Shutdown**: Automatic VPN disconnection upon quitting the app.
-
-### Configuration
-The GUI allows real-time configuration of:
-- **Server Address**: IP and Port of the SloPN server.
-- **Auth Token**: Secure token for connection.
-- **Full Tunnel**: Toggle between routing all traffic or just VPN traffic.
-
-- `server_addr`: Public IP and Port of the SloPN server.
-- `token`: Authentication token.
-- `verbose`: If true, logs packet flow to console.
-- `host_route_only`: If true, only routes the Server VIP through the tunnel (useful for multi-client testing on one machine).
-- `no_route`: If true, does not modify the system routing table at all.
-
-### Run
-```bash
-sudo ./client [flags]
-```
-
-### Options
-- `-v`: Force verbose logging (overrides config).
-- `-config string`: Path to config file (default "config.json").
+- **Server (`cmd/server`)**: Linux-native hub that manages sessions, IPAM, and NAT.
+- **Helper (`cmd/helper`)**: Privileged background service (Engine) that manages system networking.
+- **GUI (`gui/`)**: User-space dashboard for controlling the connection.
+- **CLI Control (`cmd/slopnctl`)**: Lightweight tool for interacting with the helper via terminal.
 
 ## 🧪 Testing Connectivity
-Once connected, you can verify the tunnel using standard tools:
+Once connected, verify the tunnel using standard tools:
 ```bash
-# Ping the server from client
+# Ping the server virtual IP from client
 ping 10.100.0.1
 
-# Ping a client from server
+# Ping a client virtual IP from server
 ping 10.100.0.2
 ```
 
 ---
-Author: webdunesurfer <vkh@gmx.at>
-
-This project is licensed under the GNU GPLv3 - see the [LICENSE](LICENSE) file for details.
-
+**Author:** webdunesurfer <vkh@gmx.at>  
+**License:** [GNU GPLv3](LICENSE)
