@@ -21,5 +21,7 @@ A VPN app cannot be "drag-and-dropped" if it requires a root helper. A `.pkg` in
     *   (Optional) Notarize the package for distribution outside the Mac App Store.
 
 ## Deliverables
-*   `SloPN-Installer.pkg`.
-*   Verified installation flow: User runs PKG -> App and Helper are installed -> User opens App -> VPN connects with one click.
+*   ✅ **Installer:** `bin/SloPN-Installer.pkg` created and verified.
+*   ✅ **Installation Flow:** Verified (User runs PKG -> App in /Applications -> Helper in /Library -> VPN works without sudo).
+*   ✅ **Persistence:** Helper successfully registered as a persistent `LaunchDaemon`.
+

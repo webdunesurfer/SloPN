@@ -24,3 +24,12 @@ Based on the Phase 4 implementation, the following areas are identified for impr
 ## 5. Deployment
 - **Systemd Integration:** Create a systemd unit file for the Linux server to ensure it starts on boot.
 - **Dockerization:** Containerize the server with all necessary `iptables` and `sysctl` configurations bundled.
+
+## 6. macOS Distribution & Trust
+- **Apple Developer Signing:** 
+    - Sign the Helper tool with `Developer ID Application` certificate.
+    - Sign the App bundle with `Developer ID Application` certificate.
+    - Sign the final `.pkg` with `Developer ID Installer` certificate.
+- **Notarization:** Integrate `xcrun notarytool` into the build pipeline to ensure macOS allows the app to run without security warnings.
+- **Entitlements:** Configure proper hardened runtime entitlements (e.g., `com.apple.security.network.client`, `com.apple.security.network.server`) for the GUI.
+- **Provisioning:** Manage App Groups or specific provisioning profiles if advanced macOS features are needed.
