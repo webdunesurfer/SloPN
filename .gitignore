@@ -4,6 +4,7 @@ config2.json
 
 # Build Artifacts
 /bin/
+/packaging/payload/
 
 # OS
 .DS_Store
