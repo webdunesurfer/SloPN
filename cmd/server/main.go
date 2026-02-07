@@ -30,7 +30,7 @@ var (
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 )
 
-const ServerVersion = "0.1.1"
+const ServerVersion = "0.1.2"
 
 func main() {
 	flag.Parse()

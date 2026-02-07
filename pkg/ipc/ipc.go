@@ -10,6 +10,7 @@ const (
 	CmdDisconnect Command = "disconnect"
 	CmdGetStatus  Command = "get_status"
 	CmdGetStats   Command = "get_stats"
+	CmdGetLogs    Command = "get_logs"
 )
 
 type Request struct {

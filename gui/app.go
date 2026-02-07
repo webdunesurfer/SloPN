@@ -16,7 +16,7 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const GUIVersion = "0.1.1"
+const GUIVersion = "0.1.2"
 
 // App struct
 type App struct {
@@ -138,6 +138,15 @@ func (a *App) GetStats() (*ipc.Stats, error) {
 	return &stats, nil
 }
 
+// GetLogs returns the last helper logs
+func (a *App) GetLogs() (string, error) {
+	resp, err := a.callHelper(ipc.Request{Command: ipc.CmdGetLogs})
+	if err != nil {
+		return "", err
+	}
+	return resp.Message, nil
+}
+
 // statusPoller pushes updates to the frontend every second
 func (a *App) statusPoller() {
 	ticker := time.NewTicker(1 * time.Second)
@@ -159,6 +168,11 @@ func (a *App) statusPoller() {
 			stats, err := a.GetStats()
 			if err == nil {
 				runtime.EventsEmit(a.ctx, "vpn_stats", stats)
+			}
+
+			logs, err := a.GetLogs()
+			if err == nil {
+				runtime.EventsEmit(a.ctx, "vpn_logs", logs)
 			}
 		}
 	}

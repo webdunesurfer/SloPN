@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "0.0.0.0:54321"
-	HelperVersion = "0.1.1"
+	HelperVersion = "0.1.2"
 )
 
 type Helper struct {
@@ -44,7 +44,7 @@ type Helper struct {
 	bytesRecv     uint64
 	startTime     time.Time
 	
-	conn         quic.Conn
+	conn         *quic.Conn
 	tunIfce      interface{}
 	cancelVPN    context.CancelFunc
 	vpnWG        sync.WaitGroup
@@ -75,6 +75,14 @@ func (h *Helper) getStats() ipc.Stats {
 		BytesRecv: h.bytesRecv,
 		Uptime:    uptime,
 	}
+}
+
+func (h *Helper) getLogs() string {
+	out, err := exec.Command("tail", "-n", "100", "helper.log").Output()
+	if err != nil {
+		return "Failed to read logs: " + err.Error()
+	}
+	return string(out)
 }
 
 func logHelper(msg string) {
@@ -163,6 +171,8 @@ func (h *Helper) handleIPC(c net.Conn) {
 		resp = ipc.Response{Status: "success", Data: h.getStatus()}
 	case ipc.CmdGetStats:
 		resp = ipc.Response{Status: "success", Data: h.getStats()}
+	case ipc.CmdGetLogs:
+		resp = ipc.Response{Status: "success", Message: h.getLogs()}
 	}
 
 	json.NewEncoder(c).Encode(resp)
@@ -276,7 +286,11 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	}
 
 	logHelper("[VPN] Dialing QUIC...")
-	conn, err := quic.Dial(ctx, udpConn, remoteAddr, tlsConf, &quic.Config{EnableDatagrams: true})
+	
+	dialCtx, dialCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer dialCancel()
+
+	conn, err := quic.Dial(dialCtx, udpConn, remoteAddr, tlsConf, &quic.Config{EnableDatagrams: true})
 	if err != nil {
 		logHelper(fmt.Sprintf("[VPN] QUIC Dial error: %v", err))
 		return
@@ -285,8 +299,9 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	h.conn = conn
 	h.mu.Unlock()
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStreamSync(dialCtx)
 	if err != nil {
+		logHelper(fmt.Sprintf("[VPN] Stream error: %v", err))
 		return
 	}
 	json.NewEncoder(stream).Encode(protocol.LoginRequest{
@@ -296,6 +311,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 
 	var loginResp protocol.LoginResponse
 	if err := json.NewDecoder(stream).Decode(&loginResp); err != nil {
+		logHelper(fmt.Sprintf("[VPN] Login decode error: %v", err))
 		return
 	}
 	stream.Close()
