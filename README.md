@@ -42,7 +42,13 @@ Refer to the **[Build and Release Guide](docs/build-and-release.md)** for compil
 
 The recommended way to run the SloPN server is via Docker.
 
-### 1. Using Docker Compose
+### 🚀 One-Click Installation (Linux)
+Run this command on your Linux server to automatically install and start the latest SloPN server with a secure random token:
+```bash
+curl -sSL https://raw.githubusercontent.com/webdunesurfer/SloPN/main/install-server.sh | bash
+```
+
+### 1. Manual Using Docker Compose
 ```bash
 # Clone the repository
 git clone https://github.com/webdunesurfer/SloPN.git
