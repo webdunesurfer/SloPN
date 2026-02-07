@@ -44,6 +44,7 @@ A shell script will be used as the container entrypoint to:
 *   Analyze impact on host firewall (`ufw`/`firewalld`).
 
 ## Deliverables
-*   `Dockerfile` in the project root.
-*   `docker-compose.yml` for deployment.
-*   Verified Dockerized VPN flow: Client connects to Dockerized Server -> Internet access via NAT works.
+*   ✅ **Dockerfile:** Multi-stage build for lean deployment.
+*   ✅ **docker-compose.yml:** Standardized orchestration.
+*   ✅ **One-Click Installer:** `install-server.sh` for automated setup.
+*   ✅ **Verified Flow:** Dockerized Server with NAT verified and operational.

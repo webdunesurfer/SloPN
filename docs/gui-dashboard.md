@@ -31,6 +31,8 @@ wails build
 The resulting binary will be in `build/bin/`.
 
 ## 🛠️ Features
+- **Secure Storage**: Authentication tokens are stored in the system **Keychain** (via `go-keyring`).
+- **Persistent Settings**: Config is saved to `~/Library/Application Support/SloPN/settings.json`.
 - **Connection Management**: One-click connect/disconnect.
 - **Real-time Stats**: Uptime, Bytes Sent, and Bytes Received.
 - **Configuration**: In-app adjustment of Server Address, Auth Token, and Tunneling mode.

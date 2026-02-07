@@ -43,6 +43,11 @@ Starting from Phase 5, the client is split into two components to handle macOS/L
 - **NAT:** Uses `iptables` MASQUERADE for internet exit.
 - **Dockerization:** The server is packaged as a multi-stage Docker image (Debian-slim base). It requires `NET_ADMIN` capabilities and access to the host's `/dev/net/tun` device to manage networking and NAT rules from within the container.
 
+## Secure Configuration Storage
+Starting from v0.2.1, the client implements a dual-layer persistence strategy for improved security and reliability:
+- **Sensitive Data (Auth Tokens):** Stored securely in the platform's native secure storage (e.g., **macOS Keychain**) using the `go-keyring` library. This ensures that secret tokens are encrypted at rest and never exposed in plain text configuration files.
+- **Non-Sensitive Data (Server Address, Tunnel Mode):** Persisted in a structured JSON file at `~/Library/Application Support/SloPN/settings.json`. This provides reliable state management that persists across application updates and cache clears.
+
 ## Component Overview
 - **`pkg/protocol`:** QUIC Handshake messages.
 - **`pkg/ipc`:** Inter-Process Communication messages between GUI and Helper.

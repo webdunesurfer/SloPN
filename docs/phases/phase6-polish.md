@@ -7,8 +7,8 @@
     *   **macOS:** XPC Services for secure GUI-to-Helper communication.
     *   **Windows:** Authenticated Named Pipes.
 *   **Brute-Force Protection (Fail2Ban):** Implement a security layer to block attackers attempting to guess the Auth Token.
-    *   **Server Logging:** Ensure the Go server logs failed authentication attempts with the remote IP in a structured format (e.g., `[AUTH_FAILURE] <remote_ip>`).
-    *   **Host Integration:** Configure `fail2ban` on the host machine to monitor Docker container logs using the `docker` log driver or a shared log file, automatically banning IPs after multiple failed attempts via `iptables`.
+    *   ✅ **Server Logging:** Implemented structured logging for failed auth attempts (`[AUTH_FAILURE] <remote_ip>`).
+    *   **Host Integration:** Configure `fail2ban` on the host machine to monitor Docker container logs.
 *   **Firewall Kill Switch:** Implement a system-level "Kill Switch" (using `pf` on macOS and `WFP` on Windows) to block all non-VPN traffic if the tunnel unexpectedly drops.
 
 ## 2. GUI Refinement
