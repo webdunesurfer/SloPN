@@ -30,7 +30,8 @@ echo -e "\n${BLUE}[2/5] Downloading latest SloPN...${NC}"
 if [ -d "SloPN" ]; then
     echo "Existing SloPN directory found. Updating..."
     cd SloPN
-    git pull
+    git fetch --all
+    git reset --hard origin/main
 else
     git clone https://github.com/webdunesurfer/SloPN.git
     cd SloPN
@@ -50,16 +51,8 @@ docker build -t slopn-server .
 docker stop slopn-server &>/dev/null || true
 docker rm slopn-server &>/dev/null || true
 
-# Run the container
-docker run -d \
-    --name slopn-server \
-    --restart unless-stopped \
-    --cap-add=NET_ADMIN \
-    --device=/dev/net/tun:/dev/net/tun \
-    -p 4242:4242/udp \
-    -e SLOPN_TOKEN="$TOKEN" \
-    -e SLOPN_NAT=true \
-    slopn-server -nat
+# Run the container (Single line to prevent pipe-bash issues)
+docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true slopn-server -nat
 
 # 5. Final Report
 echo -e "\n${BLUE}[5/5] Installation Complete!${NC}"
