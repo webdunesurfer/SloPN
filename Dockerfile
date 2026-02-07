@@ -17,10 +17,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o slopn-server ./cmd/server/main.go
 FROM debian:bullseye-slim
 
 # Install networking tools required for TUN and NAT
-RUN apt-get update && apt-get install -y 
-    iptables 
-    iproute2 
-    ca-certificates 
+RUN apt-get update && apt-get install -y \
+    iptables \
+    iproute2 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
