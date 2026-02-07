@@ -17,26 +17,30 @@ import (
 //export tray_callback_show
 func tray_callback_show() {
 	if wailsApp != nil && wailsApp.ctx != nil {
-		runtime.WindowShow(wailsApp.ctx)
-		runtime.WindowUnminimise(wailsApp.ctx)
+		go func() {
+			runtime.WindowShow(wailsApp.ctx)
+			runtime.WindowUnminimise(wailsApp.ctx)
+		}()
 	}
 }
 
 //export tray_callback_quit
 func tray_callback_quit() {
 	if wailsApp != nil {
-		// Attempt to disconnect if connected
-		wailsApp.Disconnect()
-		if wailsApp.ctx != nil {
-			runtime.Quit(wailsApp.ctx)
-		}
+		go func() {
+			// Attempt to disconnect if connected
+			wailsApp.Disconnect()
+			if wailsApp.ctx != nil {
+				runtime.Quit(wailsApp.ctx)
+			}
+		}()
 	}
 }
 
 //export tray_callback_about
 func tray_callback_about() {
-	if wailsApp != nil {
-		wailsApp.ShowAbout()
+	if wailsApp != nil && wailsApp.ctx != nil {
+		go wailsApp.ShowAbout()
 	}
 }
 
