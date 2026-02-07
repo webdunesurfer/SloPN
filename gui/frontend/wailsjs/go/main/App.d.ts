@@ -13,8 +13,12 @@ export function GetInitialConfig():Promise<main.InitialConfig>;
 
 export function GetLogs():Promise<string>;
 
+export function GetSavedConfig():Promise<Record<string, any>>;
+
 export function GetStats():Promise<ipc.Stats>;
 
 export function GetStatus():Promise<ipc.Status>;
+
+export function SaveConfig(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 
 export function ShowAbout():Promise<void>;

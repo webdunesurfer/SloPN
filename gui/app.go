@@ -9,19 +9,75 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/zalando/go-keyring"
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const GUIVersion = "0.1.9"
+const (
+	GUIVersion = "0.2.1"
+	Service    = "com.webdunesurfer.slopn"
+	Account    = "auth_token"
+)
 
 // App struct
 type App struct {
 	ctx context.Context
 	mu  sync.Mutex
+}
+
+// UserSettings for non-sensitive data
+type UserSettings struct {
+	Server     string `json:"server"`
+	FullTunnel bool   `json:"full_tunnel"`
+}
+
+// SaveConfig persists settings to disk and token to Keyring
+func (a *App) SaveConfig(server, token string, full bool) {
+	// 1. Save sensitive token to system Keyring
+	if token != "" {
+		err := keyring.Set(Service, Account, token)
+		if err != nil {
+			fmt.Printf("[v%s] [ERROR] Keyring save failed: %v\n", GUIVersion, err)
+		}
+	}
+
+	// 2. Save non-sensitive settings to User Home
+	home, _ := os.UserHomeDir()
+	configDir := filepath.Join(home, "Library", "Application Support", "SloPN")
+	os.MkdirAll(configDir, 0755)
+	
+	settings := UserSettings{Server: server, FullTunnel: full}
+	data, _ := json.Marshal(settings)
+	os.WriteFile(filepath.Join(configDir, "settings.json"), data, 0644)
+	fmt.Printf("[v%s] [GUI] Config saved to Keyring and Library\n", GUIVersion)
+}
+
+// GetSavedConfig retrieves settings and secure token
+func (a *App) GetSavedConfig() map[string]interface{} {
+	res := make(map[string]interface{})
+
+	// 1. Load settings from JSON
+	home, _ := os.UserHomeDir()
+	settingsPath := filepath.Join(home, "Library", "Application Support", "SloPN", "settings.json")
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		var settings UserSettings
+		if err := json.Unmarshal(data, &settings); err == nil {
+			res["server"] = settings.Server
+			res["full_tunnel"] = settings.FullTunnel
+		}
+	}
+
+	// 2. Load token from Keyring
+	if token, err := keyring.Get(Service, Account); err == nil {
+		res["token"] = token
+	}
+
+	return res
 }
 
 // NewApp creates a new App application struct

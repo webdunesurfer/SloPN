@@ -22,12 +22,20 @@ export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }
 
+export function GetSavedConfig() {
+  return window['go']['main']['App']['GetSavedConfig']();
+}
+
 export function GetStats() {
   return window['go']['main']['App']['GetStats']();
 }
 
 export function GetStatus() {
   return window['go']['main']['App']['GetStatus']();
+}
+
+export function SaveConfig(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3);
 }
 
 export function ShowAbout() {

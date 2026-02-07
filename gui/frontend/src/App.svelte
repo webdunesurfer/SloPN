@@ -1,17 +1,15 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig } from '../wailsjs/go/main/App';
+  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig, GetSavedConfig, SaveConfig } from '../wailsjs/go/main/App';
   import { EventsOn } from '../wailsjs/runtime/runtime';
 
-  let server = localStorage.getItem("slopn_server") || "";
-  let token = localStorage.getItem("slopn_token") || "";
-  let fullTunnel = localStorage.getItem("slopn_full") === "false" ? false : true;
-  let guiVersion = "0.1.9";
+  let server = "";
+  let token = "";
+  let fullTunnel = true;
+  let guiVersion = "0.2.1";
 
-  $: {
-    localStorage.setItem("slopn_server", server);
-    localStorage.setItem("slopn_token", token);
-    localStorage.setItem("slopn_full", fullTunnel);
+  function handleConfigChange() {
+    SaveConfig(server, token, fullTunnel);
   }
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
@@ -43,11 +41,20 @@
     // Fetch GUI version
     guiVersion = await GetGUIVersion();
 
-    // If localStorage is empty, try to get config from installer
+    // 1. Try to load user saved config from Go (Keyring + settings.json)
+    const saved = await GetSavedConfig();
+    if (saved.server) server = saved.server;
+    if (saved.token) token = saved.token;
+    if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
+
+    // 2. If still empty, try to get config from installer
     if (!server || !token) {
       const initConfig = await GetInitialConfig();
       if (!server && initConfig.server) server = initConfig.server;
       if (!token && initConfig.token) token = initConfig.token;
+      
+      // Save these so they persist next time
+      handleConfigChange();
     }
 
     // Initial status fetch
@@ -199,14 +206,14 @@
     <div class="card config-card">
       <div class="input-group">
         <label for="server">Server Address</label>
-        <input id="server" bind:value={server} disabled={status.state !== 'disconnected'} />
+        <input id="server" bind:value={server} on:input={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
       <div class="input-group">
         <label for="token">Auth Token</label>
-        <input id="token" type="password" bind:value={token} disabled={status.state !== 'disconnected'} />
+        <input id="token" type="password" bind:value={token} on:input={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
       <div class="input-group checkbox">
-        <input id="full" type="checkbox" bind:checked={fullTunnel} disabled={status.state !== 'disconnected'} />
+        <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
         <label for="full">Full Tunnel (Route All Traffic)</label>
       </div>
     </div>
