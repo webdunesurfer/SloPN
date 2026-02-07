@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Remove existing app to ensure fresh installation of new branding
+if [ -d "/Applications/SloPN.app" ]; then
+    rm -rf "/Applications/SloPN.app"
+fi
+
+exit 0

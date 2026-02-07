@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Set permissions for the helper tool
+chown root:wheel /Library/PrivilegedHelperTools/slopn-helper
+chmod 755 /Library/PrivilegedHelperTools/slopn-helper
+
+# Set permissions for the launchd plist
+chown root:wheel /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
+chmod 644 /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
+
+# Load the daemon
+launchctl load -w /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
+
+exit 0
