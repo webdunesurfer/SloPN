@@ -50,6 +50,7 @@ void init_tray(const char* title) {
         
         NSMenu *menu = [[NSMenu alloc] init];
         [menu addItemWithTitle:@"Show Dashboard" action:@selector(onShow:) keyEquivalent:@""];
+        [menu addItem:[NSMenuItem separatorItem]];
         [menu addItemWithTitle:@"About SloPN" action:@selector(onAbout:) keyEquivalent:@""];
         [menu addItem:[NSMenuItem separatorItem]];
         [menu addItemWithTitle:@"Quit" action:@selector(onQuit:) keyEquivalent:@"q"];

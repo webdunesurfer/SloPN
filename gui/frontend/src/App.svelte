@@ -6,7 +6,7 @@
   let server = "38.242.216.161:4242";
   let token = "8a1b06c4-13a4-4b00-a0e4-79d9ff804eb0";
   let fullTunnel = true;
-  let guiVersion = "0.1.5";
+  let guiVersion = "0.1.6";
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
   let stats = { bytes_sent: 0, bytes_recv: 0, uptime_seconds: 0 };
