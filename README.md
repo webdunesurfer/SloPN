@@ -53,7 +53,14 @@ wails build
 ```
 
 ### Versioning
-All components (Server, Helper, GUI) now support unified versioning (currently `v0.1.1`) displayed in the GUI dashboard.
+All components (Server, Helper, GUI) now support unified versioning (currently `v0.1.3`) displayed in the GUI dashboard.
+
+### 🛠️ Key GUI Features
+- **Dynamic Tray Icon**: Native macOS tray support with status-aware coloring (Green when protected).
+- **Log Streaming**: Real-time Engine logs visible directly in the dashboard.
+- **Performance Graphs**: Visual SVG sparklines for upload and download speeds.
+- **Hide on Close**: Standard macOS behavior where closing the window keeps the app in the tray.
+- **Graceful Shutdown**: Automatic VPN disconnection upon quitting the app.
 
 ### Configuration
 The GUI allows real-time configuration of:

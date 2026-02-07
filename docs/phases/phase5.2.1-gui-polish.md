@@ -7,7 +7,10 @@ This sub-phase focuses on transition from a standard window app to a Menu Bar ap
 
 ## Tasks
 *   **Menu Bar Integration (macOS):**
-    *   ⚠️ **Note:** Built-in Tray/Menu Bar support is limited in Wails v2.11.0. Reverted to fixed-size standard window (800x650) for stability.
+    *   ✅ **Implementation:** Developed a custom **Objective-C Bridge** (CGO) to bypass Wails v2 limitations.
+    *   ✅ **Features:** Added a dynamic "Shield" icon that turns green when connected.
+    *   ✅ **Behavior:** Implemented "Hide on Close" (the red "x" button hides the window to the tray).
+    *   ✅ **Graceful Exit:** Added tray "Quit" handler that ensures VPN disconnects before exiting.
 *   **Log Streaming System:**
     *   ✅ **Helper:** Implement an IPC command `CmdGetLogs` to return the last N lines of `helper.log`.
     *   ✅ **GUI (Go):** Add a method to fetch these logs and push them via Wails events.

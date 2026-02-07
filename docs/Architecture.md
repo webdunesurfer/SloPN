@@ -26,15 +26,16 @@ SloPN (Slow Private Network) is a QUIC-based Layer 3 VPN designed for simplicity
 Starting from Phase 5, the client is split into two components to handle macOS/Linux security models:
 - **Privileged Helper (Engine):** Runs as `root` to manage TUN interfaces and system routing. Listens on a local TCP port (`127.0.0.1:54321`) for IPC commands.
 - **GUI Dashboard (Wails):** Runs in user space, providing a Svelte-based interface for controlling the helper.
+- **Native Bridge:** On macOS, a custom CGO/Objective-C bridge manages the system tray icon to avoid conflicts with the Wails main loop.
 
 ## IPC Mechanism
 - **TCP Bridge:** Communication between the GUI and Helper uses a local TCP socket. This bypasses macOS sandbox restrictions that often block Unix Domain Sockets for App Bundles.
-- **JSON Protocol:** Commands (`connect`, `disconnect`, `status`) and real-time statistics are exchanged as JSON objects.
+- **JSON Protocol:** Commands (`connect`, `disconnect`, `status`, `get_logs`) and real-time statistics are exchanged as JSON objects.
 
 ## OS Specifics
 ### macOS
 - **Helper:** Uses `/dev/tunX` and manual `route` management.
-- **GUI:** Wails-based Svelte application.
+- **GUI:** Wails-based Svelte application with custom native `NSStatusItem` bridge.
 - **IPC:** TCP port 54321.
 
 ### Linux (Server)

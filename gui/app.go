@@ -16,7 +16,7 @@ import (
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const GUIVersion = "0.1.2"
+const GUIVersion = "0.1.3"
 
 // App struct
 type App struct {
@@ -164,6 +164,7 @@ func (a *App) statusPoller() {
 			
 			runtime.EventsEmit(a.ctx, "helper_status", "ok")
 			runtime.EventsEmit(a.ctx, "vpn_status", status)
+			updateTrayStatus(status.State == "connected")
 			
 			stats, err := a.GetStats()
 			if err == nil {

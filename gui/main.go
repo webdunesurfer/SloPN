@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
@@ -11,24 +12,33 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+var wailsApp *App
+
 func main() {
 	// Create an instance of the app structure
-	app := NewApp()
+	wailsApp = NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:         "SloPN VPN",
-		Width:         800,
-		Height:        650,
-		DisableResize: true,
+		Title:             "SloPN VPN",
+		Width:             800,
+		Height:            650,
+		DisableResize:     true,
+		HideWindowOnClose: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 26, G: 26, B: 26, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		OnStartup: func(ctx context.Context) {
+			wailsApp.startup(ctx)
+			initTray("SloPN")
+		},
+		OnShutdown: func(ctx context.Context) {
+			wailsApp.Disconnect()
+			wailsApp.shutdown(ctx)
+		},
 		Bind: []interface{}{
-			app,
+			wailsApp,
 		},
 	})
 
