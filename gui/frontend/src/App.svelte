@@ -1,17 +1,22 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { Connect, Disconnect, GetStatus, GetGUIVersion } from '../wailsjs/go/main/App';
   import { EventsOn } from '../wailsjs/runtime/runtime';
 
   let server = "38.242.216.161:4242";
   let token = "8a1b06c4-13a4-4b00-a0e4-79d9ff804eb0";
   let fullTunnel = true;
-  let guiVersion = "0.1.1";
+  let guiVersion = "0.1.2";
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
   let stats = { bytes_sent: 0, bytes_recv: 0, uptime_seconds: 0 };
+  let lastStats = { bytes_sent: 0, bytes_recv: 0 };
+  let history = { sent: [], recv: [] };
+  let logs = "";
+  let lastLogs = "";
   let errorMsg = "";
   let errorTimeout;
+  let logElement;
 
   function showError(msg) {
     errorMsg = msg;
@@ -19,6 +24,13 @@
     errorTimeout = setTimeout(() => {
       errorMsg = "";
     }, 10000);
+  }
+
+  $: if (logs !== lastLogs && logElement) {
+    lastLogs = logs;
+    tick().then(() => {
+      logElement.scrollTop = logElement.scrollHeight;
+    });
   }
 
   onMount(async () => {
@@ -49,7 +61,24 @@
     });
 
     EventsOn("vpn_stats", (data) => {
+      // Calculate speeds
+      if (lastStats.bytes_sent > 0) {
+        const sentSpeed = Math.max(0, data.bytes_sent - lastStats.bytes_sent);
+        const recvSpeed = Math.max(0, data.bytes_recv - lastStats.bytes_recv);
+        
+        history.sent = [...history.sent.slice(-29), sentSpeed];
+        history.recv = [...history.recv.slice(-29), recvSpeed];
+      } else {
+        history.sent = [...history.sent.slice(-29), 0];
+        history.recv = [...history.recv.slice(-29), 0];
+      }
+      
+      lastStats = { bytes_sent: data.bytes_sent, bytes_recv: data.bytes_recv };
       stats = data;
+    });
+
+    EventsOn("vpn_logs", (data) => {
+      logs = data;
     });
   });
 
@@ -101,8 +130,8 @@
         <p class="label">Status</p>
         <p class="value">{status.state.toUpperCase()}</p>
       </div>
-      <button class="toggle-btn {status.state}" on:click={handleToggle}>
-        {status.state === 'disconnected' ? 'CONNECT' : 'DISCONNECT'}
+      <button class="toggle-btn {status.state}" on:click={handleToggle} disabled={status.state === 'connecting'}>
+        {status.state === 'disconnected' ? 'CONNECT' : (status.state === 'connecting' ? 'CONNECTING...' : 'DISCONNECT')}
       </button>
     </div>
 
@@ -119,13 +148,40 @@
         <div class="card small">
           <p class="label">Sent</p>
           <p class="value">{formatBytes(stats.bytes_sent)}</p>
+          <div class="sparkline">
+            <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#00ff88"
+                stroke-width="1"
+                points={history.sent.map((v, i) => `${(i / 29) * 100},${20 - (Math.min(v, 1000000) / 1000000) * 20}`).join(' ')}
+              />
+            </svg>
+          </div>
         </div>
         <div class="card small">
           <p class="label">Received</p>
           <p class="value">{formatBytes(stats.bytes_recv)}</p>
+          <div class="sparkline">
+            <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#00ff88"
+                stroke-width="1"
+                points={history.recv.map((v, i) => `${(i / 29) * 100},${20 - (Math.min(v, 1000000) / 1000000) * 20}`).join(' ')}
+              />
+            </svg>
+          </div>
         </div>
       </div>
     {/if}
+
+    <div class="card logs-card">
+      <p class="label">Engine Logs</p>
+      <div class="logs-container" bind:this={logElement}>
+        {logs || 'Waiting for logs...'}
+      </div>
+    </div>
 
     <div class="card config-card">
       <div class="input-group">
@@ -161,22 +217,24 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
+    overflow: hidden;
   }
 
   .container {
-    padding: 20px;
-    max-width: 400px;
+    padding: 15px;
+    max-width: 800px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    box-sizing: border-box;
   }
 
   .header {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
   }
 
   .logo {
@@ -231,6 +289,20 @@
 
   .value.highlight { color: #00ff88; }
 
+  .sparkline {
+    margin-top: 8px;
+    height: 20px;
+    width: 100%;
+    background: rgba(0, 255, 136, 0.05);
+    border-radius: 2px;
+  }
+
+  .sparkline svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
   .toggle-btn {
     border: none;
     border-radius: 8px;
@@ -246,24 +318,63 @@
 
   .stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-bottom: 12px;
   }
 
   .card.small { padding: 12px; margin-bottom: 0; }
 
-  .config-card { display: flex; flex-direction: column; gap: 12px; }
+  .logs-card {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 120px;
+    margin-bottom: 10px;
+  }
 
-  .input-group label { display: block; font-size: 0.7rem; color: #888; margin-bottom: 4px; }
+  .logs-container {
+    margin-top: 5px;
+    background: #111;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 0.6rem;
+    line-height: 1.2;
+    color: #00ff88;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-y: auto;
+    height: 80px;
+    text-align: left;
+    pointer-events: auto;
+  }
+
+  .config-card { 
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 12px;
+  }
+
+  .input-group.checkbox {
+    grid-column: span 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-group label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 2px; }
   .input-group input {
     width: 100%;
     background: #1a1a1a;
     border: 1px solid #444;
     color: white;
-    padding: 8px;
+    padding: 6px;
     border-radius: 6px;
     box-sizing: border-box;
+    font-size: 0.8rem;
   }
 
   .input-group.checkbox { display: flex; align-items: center; gap: 8px; }
@@ -280,10 +391,10 @@
   }
 
   .footer {
-    margin-top: 20px;
-    padding: 10px;
+    margin-top: auto;
+    padding: 8px;
     text-align: center;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #888;
     background: #111;
     border-radius: 8px;
