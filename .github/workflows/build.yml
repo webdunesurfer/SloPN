@@ -58,13 +58,13 @@ jobs:
       - name: Build GUI (Wails)
         run: |
           cd gui
-          # Install frontend dependencies
-          cd frontend && npm install && npm run build && cd ..
-          # Build production binary manually to ensure all flags are correct
-          CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers" go build -tags production -o build/bin/SloPN .
-          # Assemble .app
-          cp -r build/bin/gui.app build/bin/SloPN.app
-          mv build/bin/SloPN build/bin/SloPN.app/Contents/MacOS/gui
+          # Wails build handles bundle creation and frontend build
+          CGO_LDFLAGS="-framework Cocoa -framework UniformTypeIdentifiers" wails build -tags production
+          
+          # Rename to SloPN.app
+          mv build/bin/gui.app build/bin/SloPN.app
+          # Ensure binary inside is named correctly if needed (Wails usually names it after the project)
+          # but we will stick to what Wails produces for stability.
 
       - name: Prepare Packaging Payload
         run: |
