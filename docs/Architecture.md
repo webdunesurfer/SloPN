@@ -41,6 +41,7 @@ Starting from Phase 5, the client is split into two components to handle macOS/L
 ### Linux (Server)
 - **Forwarding:** Uses `sysctl` for `net.ipv4.ip_forward`.
 - **NAT:** Uses `iptables` MASQUERADE for internet exit.
+- **Dockerization:** The server is packaged as a multi-stage Docker image (Debian-slim base). It requires `NET_ADMIN` capabilities and access to the host's `/dev/net/tun` device to manage networking and NAT rules from within the container.
 
 ## Component Overview
 - **`pkg/protocol`:** QUIC Handshake messages.

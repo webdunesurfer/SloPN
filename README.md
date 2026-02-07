@@ -38,11 +38,37 @@ go mod tidy
 ```
 Refer to the **[Build and Release Guide](docs/build-and-release.md)** for compilation instructions.
 
+## 🖥️ Server Setup (Docker)
+
+The recommended way to run the SloPN server is via Docker.
+
+### 1. Using Docker Compose
+```bash
+# Clone the repository
+git clone https://github.com/webdunesurfer/SloPN.git
+cd SloPN
+
+# Customize variables in docker-compose.yml if needed
+docker compose build
+docker compose up -d
+```
+
+### 2. Manual Docker Run
+```bash
+docker run -d \
+  --name slopn-server \
+  --cap-add=NET_ADMIN \
+  --device=/dev/net/tun:/dev/net/tun \
+  -p 4242:4242/udp \
+  -e SLOPN_TOKEN=your-secret-token \
+  slopn-server -nat
+```
+
 ---
 
 ## 💻 Component Overview
 
-- **Server (`cmd/server`)**: Linux-native hub that manages sessions, IPAM, and NAT.
+- **Server (`cmd/server`)**: Linux-native hub (also available as a Dockerized container) that manages sessions, IPAM, and NAT.
 - **Helper (`cmd/helper`)**: Privileged background service (Engine) that manages system networking.
 - **GUI (`gui/`)**: User-space dashboard for controlling the connection.
 - **CLI Control (`cmd/slopnctl`)**: Lightweight tool for interacting with the helper via terminal.
