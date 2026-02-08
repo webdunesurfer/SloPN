@@ -10,13 +10,13 @@ services:
     ports:
       - "4242:4242/udp"
     environment:
-      - SLOPN_TOKEN=4cfcf8cea15221e1c43f9c03b168cab2
+      - SLOPN_TOKEN=your-secret-token
       - SLOPN_NAT=true
       - SLOPN_VERBOSE=false
       - SLOPN_MAX_ATTEMPTS=5
       - SLOPN_WINDOW=5
       - SLOPN_BAN_DURATION=60
-    command: ["-nat", "-token", "4cfcf8cea15221e1c43f9c03b168cab2"]
+    command: ["-nat", "-token", "your-secret-token"]
 
   coredns:
     image: coredns/coredns:latest
