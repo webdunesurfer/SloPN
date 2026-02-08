@@ -22,7 +22,7 @@ services:
     image: coredns/coredns:latest
     container_name: slopn-dns
     restart: unless-stopped
-    network_mode: "host"
+    network_mode: "service:slopn-server"
     volumes:
       - ./coredns.conf:/etc/coredns/Corefile
     command: -conf /etc/coredns/Corefile
