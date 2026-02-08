@@ -48,19 +48,20 @@ Run this command on your Linux server to automatically install and start the lat
 curl -sSL https://raw.githubusercontent.com/webdunesurfer/SloPN/main/install-server.sh | bash
 ```
 
-### 1. Manual Using Docker Compose
+### 1. Using Docker Compose
 ```bash
 # Clone the repository
 git clone https://github.com/webdunesurfer/SloPN.git
 cd SloPN
 
-# Customize variables in docker-compose.yml if needed
-docker compose build
+# Start both VPN and DNS services
 docker compose up -d
 ```
 
 ### 2. Manual Docker Run
+If not using compose, you must start both containers. Note that the DNS container should bind to your Docker bridge IP (usually `172.17.0.1`):
 ```bash
+# Start VPN Server
 docker run -d \
   --name slopn-server \
   --cap-add=NET_ADMIN \
@@ -68,6 +69,14 @@ docker run -d \
   -p 4242:4242/udp \
   -e SLOPN_TOKEN=your-secret-token \
   slopn-server -nat
+
+# Start DNS Server (Binding to Docker bridge IP)
+docker run -d \
+  --name slopn-dns \
+  -p 172.17.0.1:53:53/udp \
+  -p 172.17.0.1:53:53/tcp \
+  -v $(pwd)/coredns.conf:/etc/coredns/Corefile \
+  coredns/coredns:latest -conf /etc/coredns/Corefile
 ```
 
 ---

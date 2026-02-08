@@ -12,6 +12,12 @@ SloPN (Slow Private Network) is a QUIC-based Layer 3 VPN designed for simplicity
 2. **Data Plane:** Once authenticated, raw IP packets are intercepted by a TUN interface, wrapped in **QUIC Datagrams** (unreliable/out-of-order, ideal for VPNs), and sent to the peer.
 3. **Server Routing:** The server acts as a gateway, using a Session Manager to route packets between clients or NATing them to the public internet.
 
+## DNS Architecture
+To ensure complete metadata privacy and prevent leaks, SloPN implements a self-hosted DNS infrastructure:
+- **Server-Side:** A **CoreDNS** container runs alongside the VPN server. It is configured as a recursive resolver that forwards queries to upstream root servers (Google/Cloudflare) while maintaining a local cache.
+- **Redirection:** The SloPN server uses `iptables` DNAT rules to intercept all traffic on port 53 (UDP/TCP) coming from the `tun0` interface and redirects it to the host's Docker Bridge IP where CoreDNS is listening.
+- **Client-Side:** The Helper automatically configures the system's DNS settings to point to the Server VIP (`10.100.0.1`) when Full Tunneling is active.
+
 ## Security & Encryption
 - **Encryption:** All traffic is encrypted using TLS 1.3 via QUIC. Currently uses self-signed certificates (Phase 4).
 - **Authentication:** Token-based authentication. The client must provide a matching token in the initial JSON handshake.

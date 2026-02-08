@@ -5,6 +5,7 @@
 ## 1. Security & IPC Enhancements
 *   ✅ **Secure IPC:** Implemented **Shared Secret** authentication between GUI and Helper (v0.2.2).
 *   ✅ **Private DNS:** Transitioned to self-hosted **CoreDNS** at `10.100.0.1` to eliminate leaks (v0.3.1).
+*   ✅ **DNS Redirection:** Implemented robust `iptables` redirection to bridge-bound CoreDNS (v0.3.8).
 *   **macOS Transition:** Future plan to migrate to XPC Services for secure GUI-to-Helper communication.
 *   **Brute-Force Protection (Fail2Ban/Internal):** Implement a security layer to block attackers attempting to guess the Auth Token.
     *   ✅ **Internal Rate Limiting:** Implemented in the Go server (v0.2.3). Configurable max attempts, window, and ban duration.
