@@ -40,7 +40,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.4.3")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.4.4")
 PUBLIC_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
 
 # 4. Build and Run Docker Containers
@@ -50,8 +50,8 @@ echo -e "\n${BLUE}[4/5] Building and starting Docker containers...${NC}"
 if docker buildx version &>/dev/null; then
     docker buildx build -t slopn-server .
 else
-    # Fallback to standard legacy builder if buildx is missing
-    docker build -t slopn-server .
+    # Fallback to standard legacy builder, explicitly disabling BuildKit to avoid shell errors
+    DOCKER_BUILDKIT=0 docker build -t slopn-server .
 fi
 
 # B) Start VPN Server

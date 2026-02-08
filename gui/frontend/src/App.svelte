@@ -6,7 +6,7 @@
   let server = "";
   let token = "";
   let fullTunnel = true;
-  let guiVersion = "0.4.3";
+  let guiVersion = "0.4.4";
 
   function handleConfigChange() {
     SaveConfig(server, token, fullTunnel);
