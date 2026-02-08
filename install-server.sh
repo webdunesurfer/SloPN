@@ -52,7 +52,7 @@ docker stop slopn-server &>/dev/null || true
 docker rm slopn-server &>/dev/null || true
 
 # Run the container (Using single line and explicit image name)
-docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true slopn-server -nat
+docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true -e SLOPN_MAX_ATTEMPTS=5 -e SLOPN_WINDOW=5 -e SLOPN_BAN_DURATION=60 slopn-server -nat
 
 # 5. Final Report
 echo -e "\n${BLUE}[5/5] Installation Complete!${NC}"

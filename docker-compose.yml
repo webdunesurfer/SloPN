@@ -13,6 +13,9 @@ services:
       - SLOPN_TOKEN=secret-token
       - SLOPN_NAT=true
       - SLOPN_VERBOSE=false
+      - SLOPN_MAX_ATTEMPTS=5
+      - SLOPN_WINDOW=5
+      - SLOPN_BAN_DURATION=60
     command: ["-nat", "-token", "your-secret-token"]
     # We may need privileged mode for some sysctl if cap_add is not enough
     # privileged: true
