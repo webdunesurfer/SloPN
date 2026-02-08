@@ -18,7 +18,7 @@ For detailed information on various aspects of the project, please refer to the 
 
 ### 📈 Project Roadmap
 - **[Development Plan](docs/plan.md)**: Overall strategy and high-level milestones.
-- **[Implementation Phases](docs/phases/)**: Step-by-step breakdown of the project's evolution from transport to GUI and containerization.
+- **[Implementation Phases](docs/phases/)**: Step-by-step breakdown of the project's evolution from transport to private DNS infrastructure and security hardening.
 
 ---
 

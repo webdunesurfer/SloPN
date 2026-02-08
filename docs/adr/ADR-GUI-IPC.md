@@ -11,12 +11,14 @@ To provide a "one-click" VPN experience on macOS without requiring a `sudo` pass
 These two processes must communicate to exchange commands (Start/Stop VPN), status updates (Connected/Disconnected), and real-time metrics (Bandwidth).
 
 ## Decision
-We will use **Local TCP Sockets (`127.0.0.1`)** on port **54321** as the Inter-Process Communication (IPC) mechanism.
+We will use **Local TCP Sockets (`127.0.0.1`)** on port **54321** as the Inter-Process Communication (IPC) mechanism. 
+
+Starting from **v0.2.2**, all communication over this socket must be authenticated using a **Shared Secret** string.
 
 ## Rationale
 *   **Sandbox Compatibility:** During development, it was discovered that macOS App Bundles (`.app`) are subject to strict sandboxing that prevents reliable access to Unix Domain Sockets (UDS) created by root in `/var/run` or `/tmp`. Local TCP bypasses these filesystem permission hurdles while remaining internal to the machine.
 *   **Wails Integration:** Wails-based applications interact more predictably with network-based IPC than filesystem-based sockets when packaged as a macOS application.
-*   **Portability:** TCP is natively supported on Windows and Linux, reducing the amount of platform-specific abstraction needed compared to UDS/Named Pipes.
+*   **Security (Shared Secret):** Since TCP is visible to other local processes, the shared secret ensures that only authorized clients (like the SloPN GUI) can control the privileged helper. The secret is generated during installation and stored in a root-protected directory.
 
 ## Consequences
 *   **Port Collision:** The helper must be able to handle cases where port 54321 is already in use.
