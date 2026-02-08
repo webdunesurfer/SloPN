@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,15 +20,27 @@ import (
 )
 
 const (
-	GUIVersion = "0.2.1"
+	GUIVersion = "0.2.2"
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
+	SecretPath = "/Library/Application Support/SloPN/ipc.secret"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
-	mu  sync.Mutex
+	ctx       context.Context
+	mu        sync.Mutex
+	ipcSecret string
+}
+
+func (a *App) loadIPCSecret() {
+	data, err := os.ReadFile(SecretPath)
+	if err != nil {
+		fmt.Printf("[v%s] [WARNING] Could not read IPC secret: %v\n", GUIVersion, err)
+		return
+	}
+	a.ipcSecret = strings.TrimSpace(string(data))
+	fmt.Printf("[v%s] [GUI] IPC Secret loaded.\n", GUIVersion)
 }
 
 // UserSettings for non-sensitive data
@@ -82,7 +95,9 @@ func (a *App) GetSavedConfig() map[string]interface{} {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	a := &App{}
+	a.loadIPCSecret()
+	return a
 }
 
 // startup is called when the app starts.
@@ -150,6 +165,8 @@ func (a *App) callHelper(req ipc.Request) (*ipc.Response, error) {
 	defer conn.Close()
 
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	req.IPCSecret = a.ipcSecret
 
 	if err := json.NewEncoder(conn).Encode(req); err != nil {
 		return nil, fmt.Errorf("failed to send command: %v", err)

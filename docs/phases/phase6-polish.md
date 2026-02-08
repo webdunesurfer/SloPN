@@ -3,9 +3,9 @@
 **Goal:** Refine the user experience, enhance security, and ensure stable performance across all supported platforms.
 
 ## 1. Security & IPC Enhancements
-*   **Secure IPC:** Transition from local TCP to more secure, platform-native IPC mechanisms:
-    *   **macOS:** XPC Services for secure GUI-to-Helper communication.
-    *   **Windows:** Authenticated Named Pipes.
+*   ✅ **Secure IPC:** Implemented **Shared Secret** authentication between GUI and Helper (v0.2.2).
+*   **macOS Transition:** Future plan to migrate to XPC Services for secure GUI-to-Helper communication.
+*   **Windows:** Authenticated Named Pipes.
 *   **Brute-Force Protection (Fail2Ban):** Implement a security layer to block attackers attempting to guess the Auth Token.
     *   ✅ **Server Logging:** Implemented structured logging for failed auth attempts (`[AUTH_FAILURE] <remote_ip>`).
     *   **Host Integration:** Configure `fail2ban` on the host machine to monitor Docker container logs.

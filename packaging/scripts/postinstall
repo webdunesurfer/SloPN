@@ -25,4 +25,11 @@ chmod 644 "/Library/Application Support/SloPN/config.json"
 # Load the daemon
 launchctl load -w /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 
+# Generate a random IPC secret if it doesn't exist
+SECRET_FILE="/Library/Application Support/SloPN/ipc.secret"
+if [ ! -f "$SECRET_FILE" ]; then
+    openssl rand -hex 32 > "$SECRET_FILE"
+    chmod 644 "$SECRET_FILE" # Readable by root and users so GUI can see it
+fi
+
 exit 0

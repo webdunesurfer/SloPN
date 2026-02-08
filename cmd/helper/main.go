@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	TCPAddr       = "0.0.0.0:54321"
-	HelperVersion = "0.2.1"
+	TCPAddr       = "127.0.0.1:54321"
+	HelperVersion = "0.2.2"
 	LogPath       = "/var/log/slopn-helper.log"
+	SecretPath    = "/Library/Application Support/SloPN/ipc.secret"
 )
 
 type Helper struct {
@@ -44,11 +45,22 @@ type Helper struct {
 	bytesSent     uint64
 	bytesRecv     uint64
 	startTime     time.Time
+	ipcSecret     string
 	
 	conn         *quic.Conn
 	tunIfce      interface{}
 	cancelVPN    context.CancelFunc
 	vpnWG        sync.WaitGroup
+}
+
+func (h *Helper) loadIPCSecret() {
+	data, err := os.ReadFile(SecretPath)
+	if err != nil {
+		logHelper(fmt.Sprintf("WARNING: Could not read IPC secret: %v. IPC will be unsecured!", err))
+		return
+	}
+	h.ipcSecret = strings.TrimSpace(string(data))
+	logHelper("IPC Secret loaded and security enabled.")
 }
 
 func (h *Helper) getStatus() ipc.Status {
@@ -110,6 +122,7 @@ func main() {
 	}
 
 	h := &Helper{state: "disconnected"}
+	h.loadIPCSecret()
 
 	l, err := net.Listen("tcp", TCPAddr)
 	if err != nil {
@@ -155,6 +168,15 @@ func (h *Helper) handleIPC(c net.Conn) {
 	}
 
 	var resp ipc.Response
+
+	// Verify IPC Secret if enabled
+	if h.ipcSecret != "" && req.IPCSecret != h.ipcSecret {
+		logHelper(fmt.Sprintf("[SECURITY] Blocked unauthenticated IPC request from %s", c.RemoteAddr()))
+		resp = ipc.Response{Status: "error", Message: "unauthorized: invalid IPC secret"}
+		json.NewEncoder(c).Encode(resp)
+		return
+	}
+
 	switch req.Command {
 	case ipc.CmdConnect:
 		logHelper(fmt.Sprintf("[IPC] Connecting to %s", req.ServerAddr))

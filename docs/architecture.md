@@ -30,6 +30,7 @@ Starting from Phase 5, the client is split into two components to handle macOS/L
 
 ## IPC Mechanism
 - **TCP Bridge:** Communication between the GUI and Helper uses a local TCP socket. This bypasses macOS sandbox restrictions that often block Unix Domain Sockets for App Bundles.
+- **Security:** Starting from v0.2.2, all IPC requests are authenticated using a **Shared Secret** generated during installation (`/Library/Application Support/SloPN/ipc.secret`). The Helper rejects any requests that do not include the correct secret.
 - **JSON Protocol:** Commands (`connect`, `disconnect`, `status`, `get_logs`) and real-time statistics are exchanged as JSON objects.
 
 ## OS Specifics

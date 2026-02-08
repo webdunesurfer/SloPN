@@ -32,6 +32,7 @@ The resulting binary will be in `build/bin/`.
 
 ## 🛠️ Features
 - **Secure Storage**: Authentication tokens are stored in the system **Keychain** (via `go-keyring`).
+- **IPC Authentication**: GUI-to-Helper communication is secured via a unique **Shared Secret**.
 - **Persistent Settings**: Config is saved to `~/Library/Application Support/SloPN/settings.json`.
 - **Connection Management**: One-click connect/disconnect.
 - **Real-time Stats**: Uptime, Bytes Sent, and Bytes Received.

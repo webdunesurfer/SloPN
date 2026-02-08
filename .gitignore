@@ -9,3 +9,4 @@ config2.json
 # OS
 .DS_Store*.log
 bin/logs/
+docs/security-improvement.md
