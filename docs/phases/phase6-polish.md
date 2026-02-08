@@ -6,7 +6,8 @@
 *   ✅ **Secure IPC:** Implemented **Shared Secret** authentication between GUI and Helper (v0.2.2).
 *   **macOS Transition:** Future plan to migrate to XPC Services for secure GUI-to-Helper communication.
 *   **Windows:** Authenticated Named Pipes.
-*   **Brute-Force Protection (Fail2Ban):** Implement a security layer to block attackers attempting to guess the Auth Token.
+*   **Brute-Force Protection (Fail2Ban/Internal):** Implement a security layer to block attackers attempting to guess the Auth Token.
+    *   ✅ **Internal Rate Limiting:** Implemented in the Go server (v0.2.3). Configurable max attempts, window, and ban duration.
     *   ✅ **Server Logging:** Implemented structured logging for failed auth attempts (`[AUTH_FAILURE] <remote_ip>`).
     *   **Host Integration:** Configure `fail2ban` on the host machine to monitor Docker container logs.
 *   **Firewall Kill Switch:** Implement a system-level "Kill Switch" (using `pf` on macOS and `WFP` on Windows) to block all non-VPN traffic if the tunnel unexpectedly drops.

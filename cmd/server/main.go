@@ -13,6 +13,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sync"
+	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/songgao/water"
@@ -30,16 +32,83 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func getEnvInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		var i int
+		fmt.Sscanf(value, "%d", &i)
+		return i
+	}
+	return fallback
+}
+
 var (
-	verbose = flag.Bool("v", false, "Enable verbose logging")
-	subnet  = flag.String("subnet", getEnv("SLOPN_SUBNET", "10.100.0.0/24"), "VPN Subnet")
-	srvIP   = flag.String("ip", getEnv("SLOPN_IP", "10.100.0.1"), "Server Virtual IP")
-	port    = flag.Int("port", 4242, "UDP Port to listen on")
-	token   = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
+	verbose   = flag.Bool("v", false, "Enable verbose logging")
+	subnet    = flag.String("subnet", getEnv("SLOPN_SUBNET", "10.100.0.0/24"), "VPN Subnet")
+	srvIP     = flag.String("ip", getEnv("SLOPN_IP", "10.100.0.1"), "Server Virtual IP")
+	port      = flag.Int("port", 4242, "UDP Port to listen on")
+	token     = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
+
+	// Rate Limiting Config
+	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
+	windowMins  = flag.Int("window", getEnvInt("SLOPN_WINDOW", 5), "Window in minutes for failed attempts")
+	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.2.2"
+type RateLimiter struct {
+	mu       sync.Mutex
+	attempts map[string][]time.Time // IP -> List of failure timestamps
+	banned   map[string]time.Time   // IP -> Ban expiration time
+}
+
+func NewRateLimiter() *RateLimiter {
+	return &RateLimiter{
+		attempts: make(map[string][]time.Time),
+		banned:   make(map[string]time.Time),
+	}
+}
+
+func (rl *RateLimiter) IsBanned(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	expiry, exists := rl.banned[ip]
+	if !exists {
+		return false
+	}
+
+	if time.Now().After(expiry) {
+		delete(rl.banned, ip)
+		delete(rl.attempts, ip)
+		return false
+	}
+	return true
+}
+
+func (rl *RateLimiter) RecordFailure(ip string) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	rl.attempts[ip] = append(rl.attempts[ip], now)
+
+	// Keep only attempts within the window
+	window := time.Duration(*windowMins) * time.Minute
+	var recent []time.Time
+	for _, t := range rl.attempts[ip] {
+		if now.Sub(t) < window {
+			recent = append(recent, t)
+		}
+	}
+	rl.attempts[ip] = recent
+
+	if len(rl.attempts[ip]) >= *maxAttempts {
+		rl.banned[ip] = now.Add(time.Duration(*banMins) * time.Minute)
+		fmt.Printf("[SECURITY] IP %s BANNED for %d minutes due to too many failed attempts.\n", ip, *banMins)
+	}
+}
+
+const ServerVersion = "0.2.3"
 
 func main() {
 	flag.Parse()
@@ -48,6 +117,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize session manager: %v", err)
 	}
+
+	rl := NewRateLimiter()
 
 	if runtime.GOOS == "linux" {
 		fmt.Println("Pre-creating TUN interface with nopi...")
@@ -137,11 +208,19 @@ func main() {
 		if err != nil {
 			continue
 		}
-		go handleConnection(conn, ifce, sm)
+		go handleConnection(conn, ifce, sm, rl)
 	}
 }
 
-func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manager) {
+func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manager, rl *RateLimiter) {
+	remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+
+	if rl.IsBanned(remoteIP) {
+		fmt.Printf("[SECURITY] Refused connection from banned IP: %s\n", remoteIP)
+		conn.CloseWithError(0x03, "banned")
+		return
+	}
+
 	stream, err := conn.AcceptStream(context.Background())
 	if err != nil {
 		return
@@ -157,6 +236,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	if loginReq.Token != *token {
 		remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 		fmt.Printf("[AUTH_FAILURE] %s: invalid token\n", remoteIP)
+		rl.RecordFailure(remoteIP)
 		resp := protocol.LoginResponse{
 			Type:          protocol.MessageTypeLoginResponse,
 			Status:        "error",

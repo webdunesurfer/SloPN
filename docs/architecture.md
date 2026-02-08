@@ -42,7 +42,8 @@ Starting from Phase 5, the client is split into two components to handle macOS/L
 ### Linux (Server)
 - **Forwarding:** Uses `sysctl` for `net.ipv4.ip_forward`.
 - **NAT:** Uses `iptables` MASQUERADE for internet exit.
-- **Dockerization:** The server is packaged as a multi-stage Docker image (Debian-slim base). It requires `NET_ADMIN` capabilities and access to the host's `/dev/net/tun` device to manage networking and NAT rules from within the container.
+- **Rate Limiting:** Starting from v0.2.3, the server implements application-level brute-force protection. It tracks failed authentication attempts per IP and automatically bans malicious IPs for a configurable duration.
+- **Dockerization:** The server is packaged as a multi-stage Docker image (Debian-slim base).
 
 ## Secure Configuration Storage
 Starting from v0.2.1, the client implements a dual-layer persistence strategy for improved security and reliability:
