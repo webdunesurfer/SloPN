@@ -36,6 +36,7 @@ Starting from Phase 5, the client is split into two components to handle macOS/L
 ## OS Specifics
 ### macOS
 - **Helper:** Uses `/dev/tunX` and manual `route` management.
+- **DNS Leak Protection:** Starting from v0.2.4, the Helper automatically backups local DNS settings, forces Cloudflare DNS (1.1.1.1) during Full Tunnel sessions, and restores original settings upon disconnection.
 - **GUI:** Wails-based Svelte application with custom native `NSStatusItem` bridge.
 - **IPC:** TCP port 54321.
 

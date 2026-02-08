@@ -31,6 +31,7 @@ wails build
 The resulting binary will be in `build/bin/`.
 
 ## 🛠️ Features
+- **DNS Leak Protection**: Automatically forces secure DNS (1.1.1.1) when Full Tunnel is enabled.
 - **Secure Storage**: Authentication tokens are stored in the system **Keychain** (via `go-keyring`).
 - **IPC Authentication**: GUI-to-Helper communication is secured via a unique **Shared Secret**.
 - **Persistent Settings**: Config is saved to `~/Library/Application Support/SloPN/settings.json`.

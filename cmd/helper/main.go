@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.2.3"
+	HelperVersion = "0.2.5"
 	LogPath       = "/var/log/slopn-helper.log"
 	SecretPath    = "/Library/Application Support/SloPN/ipc.secret"
 )
@@ -51,6 +51,55 @@ type Helper struct {
 	tunIfce      interface{}
 	cancelVPN    context.CancelFunc
 	vpnWG        sync.WaitGroup
+}
+
+func (h *Helper) getAllActiveInterfaces() []string {
+	out, err := exec.Command("networksetup", "-listallnetworkservices").Output()
+	if err != nil {
+		return []string{"Wi-Fi"}
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var active []string
+	for _, line := range lines {
+		if strings.Contains(line, "*") {
+			continue // Skip disabled services
+		}
+		if line == "An asterisk (*) denotes that a network service is disabled." {
+			continue
+		}
+		active = append(active, line)
+	}
+	return active
+}
+
+func (h *Helper) setupDNS() {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	interfaces := h.getAllActiveInterfaces()
+	logHelper(fmt.Sprintf("[DNS] Protecting %d interfaces...", len(interfaces)))
+
+	for _, iface := range interfaces {
+		// Set to Cloudflare
+		logHelper(fmt.Sprintf("[DNS] Forcing Cloudflare DNS on %s...", iface))
+		exec.Command("networksetup", "-setdnsservers", iface, "1.1.1.1", "1.0.0.1").Run()
+	}
+	
+	// Flush Cache
+	exec.Command("dscacheutil", "-flushcache").Run()
+	exec.Command("killall", "-HUP", "mDNSResponder").Run()
+}
+
+func (h *Helper) restoreDNS() {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	interfaces := h.getAllActiveInterfaces()
+	logHelper("[DNS] Restoring settings for all interfaces...")
+	for _, iface := range interfaces {
+		exec.Command("networksetup", "-setdnsservers", iface, "Empty").Run()
+	}
+	exec.Command("dscacheutil", "-flushcache").Run()
 }
 
 func (h *Helper) loadIPCSecret() {
@@ -279,6 +328,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		}
 		
 		h.disconnect()
+		h.restoreDNS()
 		logHelper("[VPN] Loop exit complete.")
 	}()
 
@@ -367,6 +417,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 
 	if full && runtime.GOOS == "darwin" {
 		logHelper("[VPN] Configuring Full Tunnel (v4 + v6 protection)...")
+		h.setupDNS()
 		exec.Command("route", "delete", "default").Run()
 		exec.Command("route", "delete", "-inet6", "default").Run()
 		exec.Command("route", "add", "default", loginResp.ServerVIP).Run()
