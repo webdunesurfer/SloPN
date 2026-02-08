@@ -19,7 +19,7 @@ Based on the Phase 4 implementation, the following areas are identified for impr
 
 ## 4. Observability
 - **Metrics:** Export Prometheus metrics for bandwidth usage, active sessions, and handshake latencies.
-- **Structured Logging:** Partly implemented (Structured Auth Failures for Fail2Ban). Replace remaining `fmt.Printf` and `log.Fatalf` with a structured logger like `zap` or `slog` for better log analysis.
+- ✅ **Structured Logging & Rate Limiting:** Implemented structured Auth Failures and application-level IP banning (v0.2.3).
 
 ## 5. Deployment
 - **Systemd Integration:** Create a systemd unit file for the Linux server to ensure it starts on boot.
