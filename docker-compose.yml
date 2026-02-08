@@ -22,7 +22,9 @@ services:
     image: coredns/coredns:latest
     container_name: slopn-dns
     restart: unless-stopped
-    network_mode: "service:slopn-server"
+    ports:
+      - "10.100.0.1:53:53/udp"
+      - "10.100.0.1:53:53/tcp"
     volumes:
       - ./coredns.conf:/etc/coredns/Corefile
     command: -conf /etc/coredns/Corefile
