@@ -40,7 +40,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.3.6")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.3.7")
 PUBLIC_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
 
 # 4. Build and Run Docker Containers
@@ -57,10 +57,8 @@ docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN -
 # C) Start CoreDNS
 docker stop slopn-dns &>/dev/null || true
 docker rm slopn-dns &>/dev/null || true
-# Wait a few seconds for tun0 to be ready on the host
-sleep 5
-# We map port 53 specifically to the VPN Gateway IP to avoid host conflicts
-docker run -d --name slopn-dns --restart unless-stopped -p 10.100.0.1:53:53/udp -p 10.100.0.1:53:53/tcp -v $(pwd)/coredns.conf:/etc/coredns/Corefile coredns/coredns:latest -conf /etc/coredns/Corefile
+# Run in standard bridge mode
+docker run -d --name slopn-dns --restart unless-stopped -v $(pwd)/coredns.conf:/etc/coredns/Corefile coredns/coredns:latest -conf /etc/coredns/Corefile
 
 # 5. Final Report
 echo -e "\n${BLUE}[5/5] Installation Complete!${NC}"

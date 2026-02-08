@@ -22,9 +22,6 @@ services:
     image: coredns/coredns:latest
     container_name: slopn-dns
     restart: unless-stopped
-    ports:
-      - "10.100.0.1:53:53/udp"
-      - "10.100.0.1:53:53/tcp"
     volumes:
       - ./coredns.conf:/etc/coredns/Corefile
     command: -conf /etc/coredns/Corefile

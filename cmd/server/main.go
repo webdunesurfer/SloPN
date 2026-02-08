@@ -108,7 +108,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 }
 
-const ServerVersion = "0.3.6"
+const ServerVersion = "0.3.7"
 
 func main() {
 	flag.Parse()
@@ -152,13 +152,28 @@ func main() {
 		if *enableNAT {
 			fmt.Println("Enabling NAT (MASQUERADE)...")
 			phyIfce, _ := exec.Command("sh", "-c", "ip route show default | awk '/default/ {print $5}'").Output()
-			ifaceName := string(phyIfce)
+			ifaceName := strings.TrimSpace(string(phyIfce))
 			if ifaceName != "" {
-				ifaceName = string(append([]byte(ifaceName[:len(ifaceName)-1]))) // trim newline
 				exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", *subnet, "-o", ifaceName, "-j", "MASQUERADE").Run()
-				exec.Command("iptables", "-A", "FORWARD", "-i", "tun0", "-j", "ACCEPT").Run()
-				exec.Command("iptables", "-A", "FORWARD", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
+				exec.Command("iptables", "-A", FORWARD, "-i", "tun0", "-j", "ACCEPT").Run()
+				exec.Command("iptables", "-A", FORWARD, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
 				fmt.Printf("NAT enabled on interface: %s\n", ifaceName)
+
+				// DNS REDIRECTION:
+				// 1. Try to find slopn-dns internal Docker IP
+				fmt.Println("Configuring DNS Redirection...")
+				dnsIPCmd := "ip route show dev eth0 | awk '/default via/ {print $3}' | sed 's/[0-9]*$/1/'" // Typical Docker gateway
+				// Better way: check if we can reach coredns via its container name if on same network, 
+				// but since we aren't using compose here, we'll use a trick: 
+				// Most reliable: install-server.sh starts DNS first, we just redirect 10.100.0.1:53 to the Docker Host IP
+				// or more simply: CoreDNS is on the bridge. We redirect to the bridge gateway.
+				gwOut, _ := exec.Command("sh", "-c", "ip route | grep default | awk '{print $3}'").Output()
+				dockerGW := strings.TrimSpace(string(gwOut))
+				if dockerGW != "" {
+					exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-i", "tun0", "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", dockerGW).Run()
+					exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-i", "tun0", "-p", "tcp", "--dport", "53", "-j", "DNAT", "--to-destination", dockerGW).Run()
+					fmt.Printf("DNS queries from VPN will be redirected to Docker Gateway: %s\n", dockerGW)
+				}
 			}
 		}
 	}
