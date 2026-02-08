@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.2.5"
+	HelperVersion = "0.2.6"
 	LogPath       = "/var/log/slopn-helper.log"
 	SecretPath    = "/Library/Application Support/SloPN/ipc.secret"
 )
@@ -80,9 +80,9 @@ func (h *Helper) setupDNS() {
 	logHelper(fmt.Sprintf("[DNS] Protecting %d interfaces...", len(interfaces)))
 
 	for _, iface := range interfaces {
-		// Set to Cloudflare
-		logHelper(fmt.Sprintf("[DNS] Forcing Cloudflare DNS on %s...", iface))
-		exec.Command("networksetup", "-setdnsservers", iface, "1.1.1.1", "1.0.0.1").Run()
+		// Set to Server Internal DNS (10.100.0.1)
+		logHelper(fmt.Sprintf("[DNS] Forcing SloPN Internal DNS on %s...", iface))
+		exec.Command("networksetup", "-setdnsservers", iface, "10.100.0.1").Run()
 	}
 	
 	// Flush Cache
