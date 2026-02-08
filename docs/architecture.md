@@ -3,9 +3,9 @@
 SloPN (Slow Private Network) is a QUIC-based Layer 3 VPN designed for simplicity, security, and performance.
 
 ## Core Protocols
-- **QUIC (RFC 9000):** Used as the primary transport layer. QUIC provides the reliability of TCP for control signals and the speed of UDP for data transfer.
-- **TLS 1.3:** Built into QUIC, ensuring all traffic between the client and server is encrypted by default.
-- **Layer 3 (IP):** The VPN operates at the IP layer, tunneling raw IPv4 packets over QUIC Datagrams.
+- **QUIC (RFC 9000):** Primary transport for control and data.
+- **DNS-over-Tunnel:** All DNS queries are routed to the **SloPN Internal DNS (`10.100.0.1`)** which uses a self-hosted CoreDNS instance. This provides metadata privacy by hiding browsing history from the ISP.
+- **TLS 1.3:** Built-in encryption for all tunnel traffic.
 
 ## Data Flow
 1. **Control Plane:** A standard QUIC stream is opened upon connection for the Login handshake (JSON-based protocol).

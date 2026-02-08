@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.2.6"
+	HelperVersion = "0.3.1"
 	LogPath       = "/var/log/slopn-helper.log"
 	SecretPath    = "/Library/Application Support/SloPN/ipc.secret"
 )

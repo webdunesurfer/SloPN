@@ -74,10 +74,10 @@ docker run -d \
 
 ## 💻 Component Overview
 
-- **Server (`cmd/server`)**: Linux-native hub (also available as a Dockerized container) that manages sessions, IPAM, and NAT.
-- **Helper (`cmd/helper`)**: Privileged background service (Engine) that manages system networking.
-- **GUI (`gui/`)**: User-space dashboard for controlling the connection.
-- **CLI Control (`cmd/slopnctl`)**: Lightweight tool for interacting with the helper via terminal.
+- **Server (`cmd/server`)**: Linux-native hub (containerized) that manages sessions, IPAM, and NAT.
+- **DNS Server (`coredns`)**: Self-hosted private DNS resolver that ensures leak-proof browsing.
+- **Helper (`cmd/helper`)**: Privileged background service (Engine) with authenticated IPC security.
+- **GUI (`gui/`)**: User-space dashboard with macOS Keychain integration for secret storage.
 
 ## 🧪 Testing Connectivity
 Once connected, verify the tunnel using standard tools:
