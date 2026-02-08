@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,18 +156,13 @@ func main() {
 			ifaceName := strings.TrimSpace(string(phyIfce))
 			if ifaceName != "" {
 				exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", *subnet, "-o", ifaceName, "-j", "MASQUERADE").Run()
-				exec.Command("iptables", "-A", FORWARD, "-i", "tun0", "-j", "ACCEPT").Run()
-				exec.Command("iptables", "-A", FORWARD, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
+				exec.Command("iptables", "-A", "FORWARD", "-i", "tun0", "-j", "ACCEPT").Run()
+				exec.Command("iptables", "-A", "FORWARD", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
 				fmt.Printf("NAT enabled on interface: %s\n", ifaceName)
 
 				// DNS REDIRECTION:
-				// 1. Try to find slopn-dns internal Docker IP
 				fmt.Println("Configuring DNS Redirection...")
-				dnsIPCmd := "ip route show dev eth0 | awk '/default via/ {print $3}' | sed 's/[0-9]*$/1/'" // Typical Docker gateway
-				// Better way: check if we can reach coredns via its container name if on same network, 
-				// but since we aren't using compose here, we'll use a trick: 
-				// Most reliable: install-server.sh starts DNS first, we just redirect 10.100.0.1:53 to the Docker Host IP
-				// or more simply: CoreDNS is on the bridge. We redirect to the bridge gateway.
+				// Better way: CoreDNS is on the bridge. We redirect to the bridge gateway.
 				gwOut, _ := exec.Command("sh", "-c", "ip route | grep default | awk '{print $3}'").Output()
 				dockerGW := strings.TrimSpace(string(gwOut))
 				if dockerGW != "" {
