@@ -18,7 +18,7 @@ services:
       - SLOPN_BAN_DURATION=60
     command: ["-nat", "-token", "your-secret-token"]
 
-  coredns:
+  slopn-dns:
     image: coredns/coredns:latest
     container_name: slopn-dns
     restart: unless-stopped
