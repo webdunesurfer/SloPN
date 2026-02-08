@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	GUIVersion = "0.4.1"
+	GUIVersion = "0.4.2"
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
 	SecretPath = "/Library/Application Support/SloPN/ipc.secret"
