@@ -21,6 +21,8 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
+CloseApplications=force
+RestartApplications=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -66,10 +68,17 @@ procedure StopSloPNService();
 var
   ResultCode: Integer;
 begin
-  // Try to stop the service before overwriting files
+  // Force kill the GUI first to release file handles
+  Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  
+  // Try to stop the service gracefully
   Exec('sc.exe', 'stop SloPNHelper', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  // Give it a moment to release file handles
-  Sleep(1000);
+  
+  // Force kill the helper process just in case the service is stuck
+  Exec('taskkill.exe', '/F /IM {#MyHelperExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  
+  // Give Windows a moment to release all file locks
+  Sleep(1500);
 end;
 
 procedure InitializeWizard;
