@@ -62,7 +62,7 @@ func (h *Helper) getLogs() string {
 	return string(out)
 }
 
-func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
+func (h *Helper) setupRouting(full bool, serverHost, serverVIP, ifceName string) {
 	if !full {
 		return
 	}
@@ -82,7 +82,7 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
 	logHelper("[VPN] Routing table updated.")
 }
 
-func (h *Helper) cleanupRouting(full bool, serverHost string) {
+func (h *Helper) cleanupRouting(full bool, serverHost, ifceName string) {
 	if !full {
 		return
 	}

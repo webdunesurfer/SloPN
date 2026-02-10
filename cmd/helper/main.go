@@ -243,7 +243,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	
 	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s", addr))
 	
-	serverHost, _, _ := net.SplitHostPort(addr)
+	var ifceName string
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -254,12 +254,12 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 			h.conn.CloseWithError(0, "logout")
 		}
 		
-		h.cleanupRouting(full, serverHost)
+		h.cleanupRouting(full, serverHost, ifceName)
 		h.disconnect()
 		logHelper("[VPN] Loop exit complete.")
 	}()
 
-	h.setupRouting(full, serverHost, "") // serverVIP not known yet for routing start
+	h.setupRouting(full, serverHost, "", "") // serverVIP not known yet
 
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"slopn-protocol"}}
 	
@@ -335,9 +335,11 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		return
 	}
 	defer ifce.Close()
+	ifceName = ifce.Name()
 
-	// Update routing with known serverVIP
-	h.setupRouting(full, serverHost, loginResp.ServerVIP)
+	// Update routing with known serverVIP and dynamic IF Name
+	h.tunIfce = ifce // Store for potential future use
+	h.setupRouting(full, serverHost, loginResp.ServerVIP, ifceName)
 
 	isLinux := runtime.GOOS == "linux"
 	errChan := make(chan error, 2)

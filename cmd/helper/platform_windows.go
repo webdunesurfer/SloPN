@@ -16,9 +16,10 @@ const (
 	SecretPath = "C:\\ProgramData\\SloPN\\ipc.secret"
 )
 
-func (h *Helper) setupDNS() {
-	logHelper("[DNS] Configuring DNS for slopn-tap0...")
-	cmd := exec.Command("netsh", "interface", "ip", "set", "dns", "name=slopn-tap0", "static", "10.100.0.1", "validate=no")
+func (h *Helper) setupDNS(ifceName string) {
+	logHelper(fmt.Sprintf("[DNS] Configuring DNS for %s...", ifceName))
+	// Quote the interface name to handle spaces
+	cmd := exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", ifceName), "static", "10.100.0.1", "validate=no")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		logHelper(fmt.Sprintf("[DNS] Error: %v (output: %s)", err, string(output)))
 	} else {
@@ -26,9 +27,9 @@ func (h *Helper) setupDNS() {
 	}
 }
 
-func (h *Helper) restoreDNS() {
-	logHelper("[DNS] Restoring DNS for slopn-tap0...")
-	exec.Command("netsh", "interface", "ip", "set", "dns", "name=slopn-tap0", "source=dhcp").Run()
+func (h *Helper) restoreDNS(ifceName string) {
+	logHelper(fmt.Sprintf("[DNS] Restoring DNS for %s...", ifceName))
+	exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", ifceName), "source=dhcp").Run()
 	exec.Command("ipconfig", "/flushdns").Run()
 }
 
@@ -78,6 +79,7 @@ func (h *Helper) getInterfaceIndex(name string) string {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()
+		// Simple contains check might match partial names, but netsh output puts Name at the end
 		if strings.Contains(line, name) {
 			fields := strings.Fields(line)
 			if len(fields) > 0 {
@@ -88,14 +90,14 @@ func (h *Helper) getInterfaceIndex(name string) string {
 	return ""
 }
 
-func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
+func (h *Helper) setupRouting(full bool, serverHost, serverVIP, ifceName string) {
 	if serverVIP == "" {
 		return
 	}
 
-	ifIndex := h.getInterfaceIndex("slopn-tap0")
+	ifIndex := h.getInterfaceIndex(ifceName)
 	if ifIndex == "" {
-		logHelper("[VPN] Error: Could not find interface index for slopn-tap0")
+		logHelper(fmt.Sprintf("[VPN] Error: Could not find interface index for %s", ifceName))
 		return
 	}
 
@@ -107,19 +109,6 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
 	
 	logHelper(fmt.Sprintf("[VPN] Configuring Full Tunnel via IF %s...", ifIndex))
 
-	// Get Gateway using netsh or route print (avoiding PS)
-	// Simplifying gateway detection for now: trust standard route command
-	// Ideally we find the gateway IP, but for pinning route, we can try relying on existing routes
-	
-	// 1. Add host route to VPN server to prevent loops.
-	// Since we are replacing PS, finding the exact Gateway IP natively is hard without parsing 'route print'.
-	// Fallback: Let's use 'route add ...' without gateway IF we assume it picks the right interface,
-	// BUT for safety, we simply assume the user has a default gateway 192.168.x.x or similar.
-	// To fix the CPU issue quickly, I will skip the dynamic GW detection loop if it relies on PS 
-	// and assume the OS handles the specific route to the server IP if we don't mess with 0.0.0.0/0 directly.
-	// BUT we ARE adding 0.0.0.0/1.
-	
-	// Let's bring back a LIGHTWEIGHT gateway check using route print
 	gwIP := getGatewayIP()
 	if gwIP != "" {
 		logHelper(fmt.Sprintf("[VPN] Pinning server route via %s", gwIP))
@@ -130,12 +119,11 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
 	exec.Command("route", "add", "0.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
 	exec.Command("route", "add", "128.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
 	
-	h.setupDNS()
+	h.setupDNS(ifceName)
 }
 
 func getGatewayIP() string {
 	out, _ := exec.Command("route", "print", "0.0.0.0").Output()
-	// Look for: "          0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.50     25"
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -147,7 +135,7 @@ func getGatewayIP() string {
 	return ""
 }
 
-func (h *Helper) cleanupRouting(full bool, serverHost string) {
+func (h *Helper) cleanupRouting(full bool, serverHost, ifceName string) {
 	logHelper("[VPN] Cleaning up Windows routes...")
 	
 	if full {
@@ -156,7 +144,9 @@ func (h *Helper) cleanupRouting(full bool, serverHost string) {
 		if serverHost != "" {
 			exec.Command("route", "delete", serverHost).Run()
 		}
-		h.restoreDNS()
+		if ifceName != "" {
+			h.restoreDNS(ifceName)
+		}
 	}
 	
 	exec.Command("route", "delete", "10.100.0.0", "mask", "255.255.255.0").Run()
