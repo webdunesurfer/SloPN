@@ -197,9 +197,9 @@
         {#if countryFlags[ipInfo.country]}
           <img src="https://flagcdn.com/w40/{countryFlags[ipInfo.country]}.png" class="flag-icon" alt="flag" />
         {/if}
-        <span class="label">Public IP:</span>
+        <span class="label">PUBLIC IP:</span>
         <span class="value highlight">{ipInfo.query}</span>
-        <span class="label">Location:</span>
+        <span class="label">LOCATION:</span>
         <span class="value">{ipInfo.city}, {ipInfo.country}</span>
       </div>
     </div>
@@ -355,7 +355,6 @@
   }
 
   .ip-row .label {
-    text-transform: none;
     font-weight: normal;
     color: #888;
   }
