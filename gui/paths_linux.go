@@ -10,6 +10,7 @@ import (
 const (
 	SecretPath = "/etc/slopn/ipc.secret"
 	InstallConfigPath = "/etc/slopn/config.json"
+	NewInstallMarkerPath = "/etc/slopn/.new_install"
 )
 
 func getConfigDir() string {

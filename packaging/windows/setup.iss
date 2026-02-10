@@ -112,5 +112,8 @@ begin
       '}';
     SaveStringToFile(SettingsPath + '\settings.json', SettingsContent, False);
     SaveStringToFile(SettingsPath + '\config.json', '{"server":"' + ServerVal + '", "token":"' + TokenVal + '"}', False);
+
+    // Create new install marker for GUI
+    SaveStringToFile('C:\ProgramData\SloPN\.new_install', '', False);
   end;
 end;

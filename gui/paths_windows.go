@@ -10,6 +10,7 @@ import (
 const (
 	SecretPath = `C:\ProgramData\SloPN\ipc.secret`
 	InstallConfigPath = `C:\ProgramData\SloPN\config.json`
+	NewInstallMarkerPath = `C:\ProgramData\SloPN\.new_install`
 )
 
 func getConfigDir() string {
