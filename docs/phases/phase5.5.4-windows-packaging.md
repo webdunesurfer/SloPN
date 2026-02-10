@@ -1,4 +1,4 @@
-# Phase 5.5.3: Windows Packaging & Distribution
+# Phase 5.5.4: Windows Packaging & Distribution
 
 **Goal:** Create a professional installer for the Windows client.
 

@@ -6,26 +6,26 @@
 
 **Fact:** We must deliver a multi-platform client solution.
 *   The architecture must allow the **GUI** (Wails) and **Helper** (privileged engine) to operate seamlessly on both macOS and Windows.
-*   **Helper Strategy:** We must prioritize a **unified helper codebase** where possible, utilizing Go's build tags (`_windows.go`, `_darwin.go`) to handle platform specific logic (TUN creation, routing, IPC). A completely separate "Windows Helper" binary should only be considered if the divergence in logic becomes unmanageable. The goal is `cmd/helper` building for both OS targets.
+*   **Helper Strategy:** We must prioritize a **unified helper codebase** where possible, utilizing Go's build tags (`_windows.go`, `_darwin.go`) to handle platform specific logic (TUN creation, routing, IPC).
 
 ## Sub-Phases
 
-To manage the complexity of the Windows port, this phase is split into three distinct work packages:
-
 *   **[Phase 5.5.1: Networking Layer](phase5.5.1-windows-networking.md)**
     *   Implementing `WinTUN` support.
-    *   Adapting IP configuration and Routing logic (`netsh`, IP Helper API).
-    *   DNS management on Windows.
+    *   Adapting IP configuration and Routing logic.
 
 *   **[Phase 5.5.2: Service & IPC](phase5.5.2-windows-service-ipc.md)**
     *   Running the Helper as a **Windows Service**.
-    *   Migrating IPC from Unix Sockets to **Named Pipes**.
-    *   Secure storage integration (Windows Credential Manager).
+    *   Unified **Local TCP IPC** with shared secret.
 
-*   **[Phase 5.5.3: Packaging & Distribution](phase5.5.3-windows-packaging.md)**
-    *   Creating the `.exe` / `.msi` installer.
-    *   Bundling drivers (`wintun.dll`).
-    *   Firewall and Service registration hooks.
+*   **[Phase 5.5.3: GUI Adaptation](phase5.5.3-windows-gui.md)**
+    *   Platform-specific path handling (`%APPDATA%`).
+    *   Windows Tray integration.
+    *   Local build and verification.
+
+*   **[Phase 5.5.4: Packaging & Distribution](phase5.5.4-windows-packaging.md)**
+    *   Creating the `.exe` installer.
+    *   Bundling drivers and service registration.
 
 ## Success Criteria (Overall)
 *   [ ] Single `cmd/helper` codebase compiles for both macOS and Windows.
