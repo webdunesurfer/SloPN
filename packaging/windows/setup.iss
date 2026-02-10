@@ -34,7 +34,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; GUI
 Source: "..\..\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Helper
-Source: "..\..\bin\{#MyHelperExeName}"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: StopSloPNService
+Source: "..\..\bin\{#MyHelperExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Drivers
 Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 
@@ -64,7 +64,7 @@ Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: ru
 var
   ConfigPage: TInputQueryWizardPage;
 
-procedure StopSloPNService();
+procedure StopSloPNProcesses();
 var
   ResultCode: Integer;
 begin
@@ -78,7 +78,7 @@ begin
   Exec('taskkill.exe', '/F /IM {#MyHelperExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   
   // Give Windows a moment to release all file locks
-  Sleep(1500);
+  Sleep(1000);
 end;
 
 procedure InitializeWizard;
@@ -100,6 +100,11 @@ var
   ServerVal: String;
   TokenVal: String;
 begin
+  if CurStep = ssInstall then
+  begin
+    StopSloPNProcesses();
+  end;
+
   if CurStep = ssPostInstall then
   begin
     ServerVal := ConfigPage.Values[0];

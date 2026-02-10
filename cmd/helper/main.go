@@ -56,7 +56,8 @@ func (h *Helper) loadIPCSecret() {
 			b := make([]byte, 32)
 			if _, err := rand.Read(b); err == nil {
 				secret := hex.EncodeToString(b)
-				if err := os.WriteFile(SecretPath, []byte(secret), 0600); err == nil {
+				// Save with 0644 so other users (GUI) can read it, but only System/Root can write
+				if err := os.WriteFile(SecretPath, []byte(secret), 0644); err == nil {
 					h.ipcSecret = secret
 					logHelper("Generated and saved new IPC Secret.")
 					return

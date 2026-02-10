@@ -216,9 +216,14 @@ func (a *App) GetStatus() (*ipc.Status, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	// Use json.Marshal/Unmarshal to convert map[string]interface{} to *ipc.Status
+	// but ensuring we return the pointer so Wails maps it to JS object correctly.
 	dataJSON, _ := json.Marshal(resp.Data)
 	var status ipc.Status
-	json.Unmarshal(dataJSON, &status)
+	if err := json.Unmarshal(dataJSON, &status); err != nil {
+		return nil, err
+	}
 	return &status, nil
 }
 
@@ -230,7 +235,9 @@ func (a *App) GetStats() (*ipc.Stats, error) {
 	}
 	dataJSON, _ := json.Marshal(resp.Data)
 	var stats ipc.Stats
-	json.Unmarshal(dataJSON, &stats)
+	if err := json.Unmarshal(dataJSON, &stats); err != nil {
+		return nil, err
+	}
 	return &stats, nil
 }
 
