@@ -8,15 +8,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
-	"os/exec"
-	"os/signal"
 	"runtime"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -29,8 +24,6 @@ import (
 const (
 	TCPAddr       = "127.0.0.1:54321"
 	HelperVersion = "0.4.4"
-	LogPath       = "/var/log/slopn-helper.log"
-	SecretPath    = "/Library/Application Support/SloPN/ipc.secret"
 )
 
 type Helper struct {
@@ -53,62 +46,13 @@ type Helper struct {
 	vpnWG        sync.WaitGroup
 }
 
-func (h *Helper) getAllActiveInterfaces() []string {
-	out, err := exec.Command("networksetup", "-listallnetworkservices").Output()
-	if err != nil {
-		return []string{"Wi-Fi"}
-	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var active []string
-	for _, line := range lines {
-		if strings.Contains(line, "*") {
-			continue // Skip disabled services
-		}
-		if line == "An asterisk (*) denotes that a network service is disabled." {
-			continue
-		}
-		active = append(active, line)
-	}
-	return active
-}
-
-func (h *Helper) setupDNS() {
-	if runtime.GOOS != "darwin" {
-		return
-	}
-	interfaces := h.getAllActiveInterfaces()
-	logHelper(fmt.Sprintf("[DNS] Protecting %d interfaces...", len(interfaces)))
-
-	for _, iface := range interfaces {
-		// Set to Server Internal DNS (10.100.0.1)
-		logHelper(fmt.Sprintf("[DNS] Forcing SloPN Internal DNS on %s...", iface))
-		exec.Command("networksetup", "-setdnsservers", iface, "10.100.0.1").Run()
-	}
-	
-	// Flush Cache
-	exec.Command("dscacheutil", "-flushcache").Run()
-	exec.Command("killall", "-HUP", "mDNSResponder").Run()
-}
-
-func (h *Helper) restoreDNS() {
-	if runtime.GOOS != "darwin" {
-		return
-	}
-	interfaces := h.getAllActiveInterfaces()
-	logHelper("[DNS] Restoring settings for all interfaces...")
-	for _, iface := range interfaces {
-		exec.Command("networksetup", "-setdnsservers", iface, "Empty").Run()
-	}
-	exec.Command("dscacheutil", "-flushcache").Run()
-}
-
 func (h *Helper) loadIPCSecret() {
 	data, err := os.ReadFile(SecretPath)
 	if err != nil {
 		logHelper(fmt.Sprintf("WARNING: Could not read IPC secret: %v. IPC will be unsecured!", err))
 		return
 	}
-	h.ipcSecret = strings.TrimSpace(string(data))
+	h.ipcSecret = string(data)
 	logHelper("IPC Secret loaded and security enabled.")
 }
 
@@ -139,14 +83,6 @@ func (h *Helper) getStats() ipc.Stats {
 	}
 }
 
-func (h *Helper) getLogs() string {
-	out, err := exec.Command("tail", "-n", "100", LogPath).Output()
-	if err != nil {
-		return "Failed to read logs: " + err.Error()
-	}
-	return string(out)
-}
-
 func logHelper(msg string) {
 	f, _ := os.OpenFile(LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if f != nil {
@@ -157,49 +93,37 @@ func logHelper(msg string) {
 	fmt.Printf("[v%s] %s\n", HelperVersion, msg)
 }
 
-func main() {
-	logHelper(fmt.Sprintf("SloPN Helper Starting. PID: %d", os.Getpid()))
-	
-	defer func() {
-		if r := recover(); r != nil {
-			logHelper(fmt.Sprintf("CRITICAL PANIC: %v", r))
-		}
-	}()
-
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		log.Fatal("Unsupported OS")
-	}
-
-	h := &Helper{state: "disconnected"}
+func (h *Helper) run(ctx context.Context) error {
 	h.loadIPCSecret()
 
 	l, err := net.Listen("tcp", TCPAddr)
 	if err != nil {
-		logHelper(fmt.Sprintf("CRITICAL: Failed to listen: %v", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to listen: %v", err)
 	}
+	defer l.Close()
 	
 	logHelper(fmt.Sprintf("SUCCESS: Listening on %s", l.Addr().String()))
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigChan
-		logHelper("Shutdown signal received. Cleaning up...")
-		h.disconnect()
-		h.vpnWG.Wait()
-		l.Close()
-		logHelper("Helper exited gracefully.")
-		os.Exit(0)
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					continue
+				}
+			}
+			go h.handleIPC(conn)
+		}
 	}()
 
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			continue
-		}
-		go h.handleIPC(conn)
-	}
+	<-ctx.Done()
+	logHelper("Stopping helper...")
+	h.disconnect()
+	h.vpnWG.Wait()
+	return nil
 }
 
 func (h *Helper) handleIPC(c net.Conn) {
@@ -305,7 +229,6 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s", addr))
 	
 	serverHost, _, _ := net.SplitHostPort(addr)
-	var currentGW string
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -316,30 +239,12 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 			h.conn.CloseWithError(0, "logout")
 		}
 		
-		logHelper("[VPN] Cleaning up routing...")
-		if full && runtime.GOOS == "darwin" {
-			exec.Command("route", "delete", "default").Run()
-			if currentGW != "" {
-				exec.Command("route", "add", "default", currentGW).Run()
-				logHelper(fmt.Sprintf("[VPN] Restored default GW: %s", currentGW))
-			}
-			exec.Command("route", "delete", "-host", serverHost).Run()
-			logHelper(fmt.Sprintf("[VPN] Removed host route for: %s", serverHost))
-		}
-		
+		h.cleanupRouting(full, serverHost)
 		h.disconnect()
-		h.restoreDNS()
 		logHelper("[VPN] Loop exit complete.")
 	}()
 
-	if runtime.GOOS == "darwin" {
-		gwOut, _ := exec.Command("sh", "-c", "route -n get default | awk '/gateway: / {print $2}'").Output()
-		currentGW = strings.TrimSpace(string(gwOut))
-		if currentGW != "" {
-			logHelper(fmt.Sprintf("[VPN] Found gateway: %s. Adding host route for %s", currentGW, serverHost))
-			exec.Command("route", "add", "-host", serverHost, currentGW).Run()
-		}
-	}
+	h.setupRouting(full, serverHost, "") // serverVIP not known yet for routing start
 
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"slopn-protocol"}}
 	
@@ -405,6 +310,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	logHelper(fmt.Sprintf("Connected! VIP: %s (Server v%s)", loginResp.AssignedVIP, loginResp.ServerVersion))
 
 	tunCfg := tunutil.Config{
+		Name: "slopn-tap0", // Use the name we established
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
 		Mask: "255.255.255.0", MTU: 1280,
 	}
@@ -415,14 +321,8 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	}
 	defer ifce.Close()
 
-	if full && runtime.GOOS == "darwin" {
-		logHelper("[VPN] Configuring Full Tunnel (v4 + v6 protection)...")
-		h.setupDNS()
-		exec.Command("route", "delete", "default").Run()
-		exec.Command("route", "delete", "-inet6", "default").Run()
-		exec.Command("route", "add", "default", loginResp.ServerVIP).Run()
-		logHelper("[VPN] Routing table updated.")
-	}
+	// Update routing with known serverVIP
+	h.setupRouting(full, serverHost, loginResp.ServerVIP)
 
 	isLinux := runtime.GOOS == "linux"
 	errChan := make(chan error, 2)

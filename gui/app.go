@@ -23,7 +23,6 @@ const (
 	GUIVersion = "0.4.4"
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
-	SecretPath = "/Library/Application Support/SloPN/ipc.secret"
 )
 
 // App struct
@@ -36,7 +35,7 @@ type App struct {
 func (a *App) loadIPCSecret() {
 	data, err := os.ReadFile(SecretPath)
 	if err != nil {
-		fmt.Printf("[v%s] [WARNING] Could not read IPC secret: %v\n", GUIVersion, err)
+		fmt.Printf("[v%s] [WARNING] Could not read IPC secret from %s: %v\n", GUIVersion, SecretPath, err)
 		return
 	}
 	a.ipcSecret = strings.TrimSpace(string(data))
@@ -60,8 +59,7 @@ func (a *App) SaveConfig(server, token string, full bool) {
 	}
 
 	// 2. Save non-sensitive settings to User Home
-	home, _ := os.UserHomeDir()
-	configDir := filepath.Join(home, "Library", "Application Support", "SloPN")
+	configDir := getConfigDir()
 	os.MkdirAll(configDir, 0755)
 	
 	settings := UserSettings{Server: server, FullTunnel: full}
@@ -75,8 +73,8 @@ func (a *App) GetSavedConfig() map[string]interface{} {
 	res := make(map[string]interface{})
 
 	// 1. Load settings from JSON
-	home, _ := os.UserHomeDir()
-	settingsPath := filepath.Join(home, "Library", "Application Support", "SloPN", "settings.json")
+	configDir := getConfigDir()
+	settingsPath := filepath.Join(configDir, "settings.json")
 	if data, err := os.ReadFile(settingsPath); err == nil {
 		var settings UserSettings
 		if err := json.Unmarshal(data, &settings); err == nil {
@@ -124,8 +122,7 @@ type InitialConfig struct {
 
 // GetInitialConfig reads the config file created by the installer
 func (a *App) GetInitialConfig() InitialConfig {
-	path := "/Library/Application Support/SloPN/config.json"
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(InstallConfigPath)
 	if err != nil {
 		return InitialConfig{}
 	}
