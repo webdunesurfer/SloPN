@@ -187,16 +187,16 @@
         <p class="label">Status</p>
         <p class="value">{status.state.toUpperCase()}</p>
       </div>
-      <div class="ip-location-info">
-        <p class="label">Public IP & Location</p>
-        <p class="value {loadingIP ? 'loading' : ''}">
-          {ipInfo.query} {countryFlags[ipInfo.country] || ''}
-          <span class="location-text">{ipInfo.city}, {ipInfo.country}</span>
-        </p>
-      </div>
       <button class="toggle-btn {status.state}" on:click={handleToggle} disabled={status.state === 'connecting'}>
         {status.state === 'disconnected' ? 'CONNECT' : (status.state === 'connecting' ? 'CONNECTING...' : 'DISCONNECT')}
       </button>
+    </div>
+
+    <div class="card ip-card">
+      <p class="label">Public IP & Location</p>
+      <p class="value {loadingIP ? 'loading' : ''}">
+        {ipInfo.query} {countryFlags[ipInfo.country] || ''} — {ipInfo.city}, {ipInfo.country}
+      </p>
     </div>
 
     {#if status.state === 'connected'}
@@ -338,17 +338,9 @@
 
   .status-info { flex-grow: 1; }
 
-  .ip-location-info {
-    text-align: right;
-    margin-right: 20px;
-    min-width: 150px;
-  }
-
-  .location-text {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: normal;
-    color: #888;
+  .ip-card .value {
+    font-size: 0.9rem;
+    color: #00ff88;
   }
 
   .value.loading {
