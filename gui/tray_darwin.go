@@ -9,6 +9,7 @@ void update_tray_status(int connected);
 */
 import "C"
 import (
+	"context"
 	"unsafe"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
