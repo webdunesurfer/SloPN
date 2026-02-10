@@ -5,9 +5,9 @@ import (
 	"embed"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/menu"
 )
 
 //go:embed all:frontend/dist
@@ -16,9 +16,7 @@ var assets embed.FS
 //go:embed build/windows/icon.ico
 var icon []byte
 
-func getAppMenu() *menu.Menu {
-	return menu.NewMenu()
-}
+var wailsApp *App
 
 func main() {
 	// Create an instance of the app structure
@@ -46,7 +44,8 @@ func main() {
 		Bind: []interface{}{
 			wailsApp,
 		},
-		Menu: getAppMenu(),
+		// We set the tray here via a platform-specific helper
+		SystemTray: getSystemTray(),
 	})
 
 	if err != nil {
