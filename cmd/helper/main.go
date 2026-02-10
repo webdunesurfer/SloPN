@@ -25,7 +25,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.5.1"
+	HelperVersion = "0.5.2"
 )
 
 type Helper struct {
