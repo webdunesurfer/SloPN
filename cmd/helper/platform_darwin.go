@@ -87,9 +87,6 @@ func (h *Helper) cleanupRouting(full bool, serverHost string) {
 		return
 	}
 	
-	gwOut, _ := exec.Command("sh", "-c", "route -n get default | awk '/gateway: / {print $2}'").Output()
-	currentGW := strings.TrimSpace(string(gwOut)) // This might be wrong if we already changed it
-
 	logHelper("[VPN] Cleaning up routing...")
 	exec.Command("route", "delete", "default").Run()
 	// We need a better way to restore the original gateway on Darwin
