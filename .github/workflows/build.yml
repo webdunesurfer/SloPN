@@ -197,5 +197,6 @@ jobs:
             SloPN-MacOS-Installer/SloPN-Installer.pkg
             windows-client/SloPN.exe
             windows-client/slopn-helper.exe
+            windows-client/SloPN-Setup.exe
           draft: true
           generate_release_notes: true
