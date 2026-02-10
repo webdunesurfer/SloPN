@@ -15,6 +15,8 @@ export function GetInitialConfig():Promise<main.InitialConfig>;
 
 export function GetLogs():Promise<string>;
 
+export function GetPublicIPInfo():Promise<main.IPInfo>;
+
 export function GetSavedConfig():Promise<Record<string, any>>;
 
 export function GetStats():Promise<ipc.Stats>;

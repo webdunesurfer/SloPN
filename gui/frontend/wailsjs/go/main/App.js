@@ -26,6 +26,10 @@ export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }
 
+export function GetPublicIPInfo() {
+  return window['go']['main']['App']['GetPublicIPInfo']();
+}
+
 export function GetSavedConfig() {
   return window['go']['main']['App']['GetSavedConfig']();
 }

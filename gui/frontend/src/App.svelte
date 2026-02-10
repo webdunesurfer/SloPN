@@ -1,12 +1,34 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig, GetSavedConfig, SaveConfig, CheckNewInstall } from '../wailsjs/go/main/App';
+  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig, GetSavedConfig, SaveConfig, CheckNewInstall, GetPublicIPInfo } from '../wailsjs/go/main/App';
   import { EventsOn } from '../wailsjs/runtime/runtime';
 
   let server = "";
   let token = "";
   let fullTunnel = true;
   let guiVersion = "0.5.7";
+
+  let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
+  let loadingIP = false;
+
+  const countryFlags = {
+    'Austria': '🇦🇹', 'France': '🇫🇷', 'Germany': '🇩🇪', 'United States': '🇺🇸',
+    'United Kingdom': '🇬🇧', 'Netherlands': '🇳🇱', 'Russia': '🇷🇺', 'Ukraine': '🇺🇦',
+    'Belgium': '🇧🇪', 'Finland': '🇫🇮', 'Germany': '🇩🇪'
+  };
+
+  async function fetchIP() {
+    loadingIP = true;
+    try {
+      const info = await GetPublicIPInfo();
+      if (info) ipInfo = info;
+    } catch (e) {
+      console.error("IP check failed:", e);
+    } finally {
+      loadingIP = false;
+    }
+  }
+
   function handleConfigChange() {
     SaveConfig(server, token, fullTunnel);
   }
@@ -71,6 +93,9 @@
       status = { state: 'disconnected', helper_version: '---', server_version: '---' };
     }
 
+    // Initial IP fetch
+    fetchIP();
+
     // Listen for helper presence
     EventsOn("helper_status", (state) => {
       if (state === "missing") {
@@ -84,7 +109,12 @@
 
     // Listen for updates from Go
     EventsOn("vpn_status", (data) => {
+      const oldState = status.state;
       status = data;
+      // Re-fetch IP if state changed to/from connected
+      if (oldState !== data.state) {
+        fetchIP();
+      }
     });
 
     EventsOn("vpn_stats", (data) => {
@@ -156,6 +186,13 @@
       <div class="status-info">
         <p class="label">Status</p>
         <p class="value">{status.state.toUpperCase()}</p>
+      </div>
+      <div class="ip-location-info">
+        <p class="label">Public IP & Location</p>
+        <p class="value {loadingIP ? 'loading' : ''}">
+          {ipInfo.query} {countryFlags[ipInfo.country] || ''}
+          <span class="location-text">{ipInfo.city}, {ipInfo.country}</span>
+        </p>
       </div>
       <button class="toggle-btn {status.state}" on:click={handleToggle} disabled={status.state === 'connecting'}>
         {status.state === 'disconnected' ? 'CONNECT' : (status.state === 'connecting' ? 'CONNECTING...' : 'DISCONNECT')}
@@ -300,6 +337,23 @@
   .status-indicator.disconnected { background: #ff4444; }
 
   .status-info { flex-grow: 1; }
+
+  .ip-location-info {
+    text-align: right;
+    margin-right: 20px;
+    min-width: 150px;
+  }
+
+  .location-text {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: #888;
+  }
+
+  .value.loading {
+    opacity: 0.5;
+  }
 
   .label {
     font-size: 0.7rem;

@@ -17,6 +17,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/zalando/go-keyring"
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
+	"net/http"
 )
 
 const (
@@ -24,6 +25,14 @@ const (
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
 )
+
+// IPInfo represents public IP and geolocation data
+type IPInfo struct {
+	Query   string `json:"query"`
+	City    string `json:"city"`
+	Country string `json:"country"`
+	ISP     string `json:"isp"`
+}
 
 // App struct
 type App struct {
@@ -264,6 +273,22 @@ func (a *App) GetLogs() (string, error) {
 		return "", err
 	}
 	return resp.Message, nil
+}
+
+// GetPublicIPInfo fetches the current public IP and location
+func (a *App) GetPublicIPInfo() (*IPInfo, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var info IPInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+	return &info, nil
 }
 
 // statusPoller pushes updates to the frontend every second

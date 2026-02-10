@@ -43,6 +43,24 @@ export namespace ipc {
 
 export namespace main {
 	
+	export class IPInfo {
+	    query: string;
+	    city: string;
+	    country: string;
+	    isp: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new IPInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.query = source["query"];
+	        this.city = source["city"];
+	        this.country = source["country"];
+	        this.isp = source["isp"];
+	    }
+	}
 	export class InitialConfig {
 	    server: string;
 	    token: string;
