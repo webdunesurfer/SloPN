@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"embed"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -45,6 +47,13 @@ func main() {
 			wailsApp,
 		},
 		Menu: getAppMenu(),
+		Mac: &mac.Options{
+			TitleBar: mac.TitleBarDefault(),
+			About: &mac.AboutInfo{
+				Title:   "SloPN",
+				Message: "© 2026 webdunesurfer",
+			},
+		},
 	})
 
 	if err != nil {
@@ -53,5 +62,11 @@ func main() {
 }
 
 func getAppMenu() *menu.Menu {
-	return menu.NewMenu()
+	AppMenu := menu.NewMenu()
+	if runtime.GOOS == "darwin" {
+		AppMenu.Append(menu.AppMenu())
+		AppMenu.Append(menu.EditMenu())
+		AppMenu.Append(menu.WindowMenu())
+	}
+	return AppMenu
 }

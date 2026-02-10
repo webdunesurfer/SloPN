@@ -78,7 +78,7 @@ void update_tray_status(int connected) {
                 if (@available(macOS 12.0, *)) {
                     config = [NSImageSymbolConfiguration configurationWithPaletteColors:@[[NSColor systemGreenColor]]];
                 } else {
-                    config = [NSImageSymbolConfiguration configurationWithHierarchicalColor:[NSColor systemGreenColor]];
+                    config = [NSImageSymbolConfiguration configurationWithScale:NSImageSymbolScaleLarge];
                 }
             } else {
                 config = [NSImageSymbolConfiguration configurationWithScale:NSImageSymbolScaleLarge];

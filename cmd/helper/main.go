@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.5.6"
+	HelperVersion = "0.5.7"
 )
 
 type Helper struct {
@@ -67,7 +68,7 @@ func (h *Helper) loadIPCSecret() {
 		logHelper(fmt.Sprintf("WARNING: Could not read IPC secret: %v. IPC will be unsecured!", err))
 		return
 	}
-	h.ipcSecret = string(data)
+	h.ipcSecret = strings.TrimSpace(string(data))
 	logHelper("IPC Secret loaded and security enabled.")
 }
 

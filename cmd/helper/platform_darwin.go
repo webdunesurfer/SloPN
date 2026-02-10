@@ -63,36 +63,42 @@ func (h *Helper) getLogs() string {
 }
 
 func (h *Helper) setupRouting(full bool, serverHost, serverVIP, ifceName string) {
-	if !full {
-		return
+	// 1. Always ensure we have a host route to the VPN server via the physical gateway
+	if serverHost != "" {
+		gwOut, _ := exec.Command("sh", "-c", "route -n get default | awk '/gateway: / {print $2}'").Output()
+		currentGW := strings.TrimSpace(string(gwOut))
+		if currentGW != "" {
+			logHelper(fmt.Sprintf("[VPN] Ensuring host route for %s via %s", serverHost, currentGW))
+			exec.Command("route", "add", "-host", serverHost, currentGW).Run()
+		}
 	}
-	
-	gwOut, _ := exec.Command("sh", "-c", "route -n get default | awk '/gateway: / {print $2}'").Output()
-	currentGW := strings.TrimSpace(string(gwOut))
-	if currentGW != "" {
-		logHelper(fmt.Sprintf("[VPN] Found gateway: %s. Adding host route for %s", currentGW, serverHost))
-		exec.Command("route", "add", "-host", serverHost, currentGW).Run()
+
+	if !full || serverVIP == "" {
+		return
 	}
 
 	logHelper("[VPN] Configuring Full Tunnel (v4 + v6 protection)...")
 	h.setupDNS()
-	exec.Command("route", "delete", "default").Run()
-	exec.Command("route", "delete", "-inet6", "default").Run()
-	exec.Command("route", "add", "default", serverVIP).Run()
+
+	// Use the "more specific route" trick (0.0.0.0/1 and 128.0.0.0/1)
+	logHelper(fmt.Sprintf("[VPN] Redirecting traffic via %s...", serverVIP))
+	exec.Command("route", "add", "-net", "0.0.0.0/1", serverVIP).Run()
+	exec.Command("route", "add", "-net", "128.0.0.0/1", serverVIP).Run()
+
 	logHelper("[VPN] Routing table updated.")
 }
 
 func (h *Helper) cleanupRouting(full bool, serverHost, ifceName string) {
-	if !full {
-		return
-	}
-	
 	logHelper("[VPN] Cleaning up routing...")
-	exec.Command("route", "delete", "default").Run()
-	// We need a better way to restore the original gateway on Darwin
-	// For now, this is a placeholder matching existing logic
-	exec.Command("route", "delete", "-host", serverHost).Run()
-	logHelper(fmt.Sprintf("[VPN] Removed host route for: %s", serverHost))
-	
-	h.restoreDNS()
+
+	if full {
+		exec.Command("route", "delete", "-net", "0.0.0.0/1").Run()
+		exec.Command("route", "delete", "-net", "128.0.0.0/1").Run()
+		h.restoreDNS()
+	}
+
+	if serverHost != "" {
+		exec.Command("route", "delete", "-host", serverHost).Run()
+		logHelper(fmt.Sprintf("[VPN] Removed host route for: %s", serverHost))
+	}
 }

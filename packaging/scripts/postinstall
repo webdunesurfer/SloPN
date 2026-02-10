@@ -22,13 +22,17 @@ mkdir -p /Library/Application\ Support/SloPN
 echo "{\"server\":\"$USER_SERVER\", \"token\":\"$USER_TOKEN\"}" > "/Library/Application Support/SloPN/config.json"
 chmod 644 "/Library/Application Support/SloPN/config.json"
 
+# Create marker for GUI to know it's a fresh install/reconfig
+touch "/Library/Application Support/SloPN/.new_install"
+chmod 644 "/Library/Application Support/SloPN/.new_install"
+
 # Load the daemon
 launchctl load -w /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist
 
 # Generate a random IPC secret if it doesn't exist
 SECRET_FILE="/Library/Application Support/SloPN/ipc.secret"
 if [ ! -f "$SECRET_FILE" ]; then
-    openssl rand -hex 32 > "$SECRET_FILE"
+    echo -n "$(openssl rand -hex 32)" > "$SECRET_FILE"
     chmod 644 "$SECRET_FILE" # Readable by root and users so GUI can see it
 fi
 

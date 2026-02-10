@@ -55,7 +55,13 @@ func (a *App) SaveConfig(server, token string, full bool) {
 		err := keyring.Set(Service, Account, token)
 		if err != nil {
 			fmt.Printf("[v%s] [ERROR] Keyring save failed: %v\n", GUIVersion, err)
+		} else {
+			fmt.Printf("[v%s] [GUI] Token updated in Keyring\n", GUIVersion)
 		}
+	} else {
+		// If token is empty, try to remove it from keyring to clear it
+		keyring.Delete(Service, Account)
+		fmt.Printf("[v%s] [GUI] Token cleared from Keyring\n", GUIVersion)
 	}
 
 	// 2. Save non-sensitive settings to User Home
@@ -65,7 +71,7 @@ func (a *App) SaveConfig(server, token string, full bool) {
 	settings := UserSettings{Server: server, FullTunnel: full}
 	data, _ := json.Marshal(settings)
 	os.WriteFile(filepath.Join(configDir, "settings.json"), data, 0644)
-	fmt.Printf("[v%s] [GUI] Config saved to Keyring and Library\n", GUIVersion)
+	fmt.Printf("[v%s] [GUI] Config (Server: %s, Full: %v) saved to Library\n", GUIVersion, server, full)
 }
 
 // GetSavedConfig retrieves settings and secure token
@@ -113,6 +119,16 @@ func (a *App) shutdown(ctx context.Context) {
 // GetGUIVersion returns the GUI's version
 func (a *App) GetGUIVersion() string {
 	return GUIVersion
+}
+
+// CheckNewInstall returns true if the .new_install marker exists, then deletes it
+func (a *App) CheckNewInstall() bool {
+	if _, err := os.Stat(NewInstallMarkerPath); err == nil {
+		os.Remove(NewInstallMarkerPath)
+		fmt.Printf("[v%s] [GUI] New installation marker detected. Prioritizing installer config.\n", GUIVersion)
+		return true
+	}
+	return false
 }
 
 type InitialConfig struct {

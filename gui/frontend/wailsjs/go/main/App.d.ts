@@ -3,6 +3,8 @@
 import {main} from '../models';
 import {ipc} from '../models';
 
+export function CheckNewInstall():Promise<boolean>;
+
 export function Connect(arg1:string,arg2:string,arg3:boolean):Promise<string>;
 
 export function Disconnect():Promise<string>;

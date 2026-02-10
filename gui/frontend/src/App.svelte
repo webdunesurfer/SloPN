@@ -1,12 +1,12 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig, GetSavedConfig, SaveConfig } from '../wailsjs/go/main/App';
+  import { Connect, Disconnect, GetStatus, GetGUIVersion, GetInitialConfig, GetSavedConfig, SaveConfig, CheckNewInstall } from '../wailsjs/go/main/App';
   import { EventsOn } from '../wailsjs/runtime/runtime';
 
   let server = "";
   let token = "";
   let fullTunnel = true;
-  	let guiVersion = "0.5.6";
+  let guiVersion = "0.5.7";
   function handleConfigChange() {
     SaveConfig(server, token, fullTunnel);
   }
@@ -40,20 +40,28 @@
     // Fetch GUI version
     guiVersion = await GetGUIVersion();
 
+    // Check if this is a fresh install or reconfiguration
+    const isNew = await CheckNewInstall();
+
     // 1. Try to load user saved config from Go (Keyring + settings.json)
     const saved = await GetSavedConfig();
-    if (saved.server) server = saved.server;
-    if (saved.token) token = saved.token;
-    if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
-
-    // 2. If still empty, try to get config from installer
-    if (!server || !token) {
+    
+    // 2. Determine initial values
+    if (isNew || !saved.server || !saved.token) {
+      // Force load from installer if marker is present OR if no user config exists
       const initConfig = await GetInitialConfig();
-      if (!server && initConfig.server) server = initConfig.server;
-      if (!token && initConfig.token) token = initConfig.token;
       
-      // Save these so they persist next time
+      server = initConfig.server || saved.server || "";
+      token = initConfig.token || saved.token || "";
+      fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
+
+      // Save to user settings immediately so it's consistent
       handleConfigChange();
+    } else {
+      // Normal load from existing user settings
+      if (saved.server) server = saved.server;
+      if (saved.token) token = saved.token;
+      if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
     }
 
     // Initial status fetch
@@ -205,11 +213,11 @@
     <div class="card config-card">
       <div class="input-group">
         <label for="server">Server Address</label>
-        <input id="server" bind:value={server} on:input={handleConfigChange} disabled={status.state !== 'disconnected'} />
+        <input id="server" bind:value={server} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
       <div class="input-group">
         <label for="token">Auth Token</label>
-        <input id="token" type="password" bind:value={token} on:input={handleConfigChange} disabled={status.state !== 'disconnected'} />
+        <input id="token" type="password" bind:value={token} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
       <div class="input-group checkbox">
         <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
