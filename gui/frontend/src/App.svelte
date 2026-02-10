@@ -193,10 +193,13 @@
     </div>
 
     <div class="card ip-card">
-      <p class="label">Public IP & Location</p>
-      <p class="value {loadingIP ? 'loading' : ''}">
-        {ipInfo.query} {countryFlags[ipInfo.country] || ''} — {ipInfo.city}, {ipInfo.country}
-      </p>
+      <div class="ip-row">
+        <span class="label">Public IP:</span>
+        <span class="value highlight">{ipInfo.query}</span>
+        <span class="label">Location:</span>
+        <span class="value">{ipInfo.city}, {ipInfo.country}</span>
+        <span class="flag">{countryFlags[ipInfo.country] || '🌐'}</span>
+      </div>
     </div>
 
     {#if status.state === 'connected'}
@@ -338,9 +341,30 @@
 
   .status-info { flex-grow: 1; }
 
-  .ip-card .value {
-    font-size: 0.9rem;
-    color: #00ff88;
+  .ip-card {
+    padding: 10px 16px;
+  }
+
+  .ip-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+  }
+
+  .ip-row .label {
+    text-transform: none;
+    font-weight: normal;
+    color: #888;
+  }
+
+  .ip-row .value {
+    font-weight: bold;
+  }
+
+  .flag {
+    margin-left: auto;
+    font-size: 1.2rem;
   }
 
   .value.loading {
