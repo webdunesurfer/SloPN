@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	SecretPath = "C:\ProgramData\SloPN\ipc.secret"
-	InstallConfigPath = "C:\ProgramData\SloPN\config.json"
+	SecretPath = `C:\ProgramData\SloPN\ipc.secret`
+	InstallConfigPath = `C:\ProgramData\SloPN\config.json`
 )
 
 func getConfigDir() string {

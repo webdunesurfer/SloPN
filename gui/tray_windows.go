@@ -5,8 +5,7 @@ package main
 import "fmt"
 
 func initTray(title string) {
-	fmt.Printf("[GUI] Tray initialized with title: %s (Windows Tray todo)
-", title)
+	fmt.Printf("[GUI] Tray initialized with title: %s (Windows Tray todo)\n", title)
 }
 
 func updateTrayStatus(connected bool) {
