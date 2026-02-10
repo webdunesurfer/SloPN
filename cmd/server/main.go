@@ -109,7 +109,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 }
 
-const ServerVersion = "0.5.5"
+const ServerVersion = "0.5.6"
 
 func main() {
 	flag.Parse()
