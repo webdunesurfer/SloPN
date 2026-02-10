@@ -111,9 +111,11 @@
     EventsOn("vpn_status", (data) => {
       const oldState = status.state;
       status = data;
-      // Re-fetch IP if state changed to/from connected
-      if (oldState !== data.state) {
-        fetchIP();
+      // Re-fetch IP if state changed to/from connected with a delay
+      if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
+        setTimeout(() => {
+          fetchIP();
+        }, 5000); // 5 second delay for routes to settle
       }
     });
 
