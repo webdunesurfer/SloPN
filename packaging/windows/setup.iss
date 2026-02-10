@@ -64,33 +64,55 @@ Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: ru
 var
   ConfigPage: TInputQueryWizardPage;
 
+// Helper to extract values from our simple config.json
+function GetJSONValue(const JSON, Key: String): String;
+var
+  KeyPos, ValueStart, ValueEnd: Integer;
+  SearchKey: String;
+begin
+  Result := '';
+  SearchKey := '"' + Key + '":"';
+  KeyPos := Pos(SearchKey, JSON);
+  if KeyPos > 0 then
+  begin
+    ValueStart := KeyPos + Length(SearchKey);
+    ValueEnd := Pos('"', Copy(JSON, ValueStart, MaxInt));
+    if ValueEnd > 0 then
+      Result := Copy(JSON, ValueStart, ValueEnd - 1);
+  end;
+end;
+
 procedure StopSloPNProcesses();
 var
   ResultCode: Integer;
 begin
-  // Force kill the GUI first to release file handles
   Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  
-  // Try to stop the service gracefully
   Exec('sc.exe', 'stop SloPNHelper', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  
-  // Force kill the helper process just in case the service is stuck
   Exec('taskkill.exe', '/F /IM {#MyHelperExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  
-  // Give Windows a moment to release all file locks
   Sleep(1000);
 end;
 
 procedure InitializeWizard;
+var
+  OldConfig: String;
+  ConfigPath: String;
 begin
   ConfigPage := CreateInputQueryPage(wpReady,
     'SloPN Configuration', 'Server Connection Details',
     'Please enter the connection details provided by your SloPN server administrator.');
   ConfigPage.Add('Server Address (e.g. 1.2.3.4:4242):', False);
-  ConfigPage.Add('Auth Token:', True); // Password/Hidden field
+  ConfigPage.Add('Auth Token:', True);
   
-  ConfigPage.Values[0] := '';
-  ConfigPage.Values[1] := '';
+  // Try to load existing config to pre-fill
+  ConfigPath := ExpandConstant('{userappdata}') + '\SloPN\config.json';
+  if FileExists(ConfigPath) then
+  begin
+    if LoadStringFromFile(ConfigPath, OldConfig) then
+    begin
+      ConfigPage.Values[0] := GetJSONValue(OldConfig, 'server');
+      ConfigPage.Values[1] := GetJSONValue(OldConfig, 'token');
+    end;
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
