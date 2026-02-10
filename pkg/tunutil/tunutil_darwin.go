@@ -19,8 +19,7 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 		return nil, fmt.Errorf("failed to create TUN interface: %v", err)
 	}
 
-	fmt.Printf("Created TUN interface: %s
-", ifce.Name())
+	fmt.Printf("Created TUN interface: %s\n", ifce.Name())
 
 	cmd := exec.Command("ifconfig", ifce.Name(), cfg.Addr, cfg.Peer, "netmask", cfg.Mask, "mtu", fmt.Sprintf("%d", cfg.MTU), "up")
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -28,8 +27,7 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 	}
 
 	if cfg.NoRoute {
-		fmt.Printf("macOS Interface %s ready (Skipped routing table modification)
-", ifce.Name())
+		fmt.Printf("macOS Interface %s ready (Skipped routing table modification)\n", ifce.Name())
 		return ifce, nil
 	}
 
@@ -37,14 +35,12 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 		exec.Command("route", "delete", cfg.Peer).Run()
 		routeCmd := exec.Command("route", "add", "-host", cfg.Peer, "-interface", ifce.Name())
 		routeCmd.Run()
-		fmt.Printf("macOS Interface %s ready (Host route to %s)
-", ifce.Name(), cfg.Peer)
+		fmt.Printf("macOS Interface %s ready (Host route to %s)\n", ifce.Name(), cfg.Peer)
 	} else {
 		exec.Command("route", "delete", "-net", "10.100.0.0/24").Run()
 		routeCmd := exec.Command("route", "add", "-net", "10.100.0.0/24", "-interface", ifce.Name())
 		routeCmd.Run()
-		fmt.Printf("macOS Interface %s ready (Subnet route)
-", ifce.Name())
+		fmt.Printf("macOS Interface %s ready (Subnet route)\n", ifce.Name())
 	}
 
 	return ifce, nil

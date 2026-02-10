@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"runtime"
 )
 
 const (
@@ -19,8 +18,7 @@ func (h *Helper) getAllActiveInterfaces() []string {
 	if err != nil {
 		return []string{"Wi-Fi"}
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "
-")
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	var active []string
 	for _, line := range lines {
 		if strings.Contains(line, "*") {

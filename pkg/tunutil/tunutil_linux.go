@@ -25,8 +25,7 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 		return nil, fmt.Errorf("failed to create TUN interface: %v", err)
 	}
 
-	fmt.Printf("Created TUN interface: %s
-", ifce.Name())
+	fmt.Printf("Created TUN interface: %s\n", ifce.Name())
 
 	addrCmd := exec.Command("ip", "addr", "add", cfg.Addr+"/24", "dev", ifce.Name())
 	addrCmd.Run()
@@ -37,7 +36,6 @@ func CreateInterface(cfg Config) (*water.Interface, error) {
 		return nil, fmt.Errorf("ip link up failed: %v (output: %s)", err, string(output))
 	}
 
-	fmt.Printf("Linux Interface %s ready: IP=%s/24
-", ifce.Name(), cfg.Addr)
+	fmt.Printf("Linux Interface %s ready: IP=%s/24\n", ifce.Name(), cfg.Addr)
 	return ifce, nil
 }
