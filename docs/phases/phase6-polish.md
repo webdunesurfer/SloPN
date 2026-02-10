@@ -26,5 +26,6 @@
 *   **Auto-Reconnection:** Add an exponential backoff strategy for automatic reconnection after a network drop.
 
 ## 4. Cross-Platform Support
-*   **Windows Support:** Full integration with **WinTun** and implementation of the Windows Service version of the helper.
+*   ✅ **Windows Support:** Full integration with **TAP-Windows** and implementation of the Windows Service version of the helper (v0.5.x).
+*   **System Tray Unification:** Refactor the current platform-specific tray implementations (`tray_darwin.m`, `tray_windows.go`) to use a unified library like `getlantern/systray`. This will reduce code complexity (~300 lines) and improve maintainability.
 *   **Linux Desktop Support:** Integrate with `nmcli` or `systemd-resolved` for DNS management.
