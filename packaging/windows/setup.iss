@@ -76,7 +76,7 @@ begin
   if KeyPos > 0 then
   begin
     ValueStart := KeyPos + Length(SearchKey);
-    ValueEnd := Pos('"', Copy(JSON, ValueStart, MaxInt));
+    ValueEnd := Pos('"', Copy(JSON, ValueStart, Length(JSON)));
     if ValueEnd > 0 then
       Result := Copy(JSON, ValueStart, ValueEnd - 1);
   end;
