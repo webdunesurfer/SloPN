@@ -28,10 +28,11 @@ const (
 
 // IPInfo represents public IP and geolocation data
 type IPInfo struct {
-	Query   string `json:"query"`
-	City    string `json:"city"`
-	Country string `json:"country"`
-	ISP     string `json:"isp"`
+	Query       string `json:"query"`
+	City        string `json:"city"`
+	Country     string `json:"country"`
+	CountryCode string `json:"countryCode"`
+	ISP         string `json:"isp"`
 }
 
 // App struct

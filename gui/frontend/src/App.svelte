@@ -194,8 +194,11 @@
 
     <div class="card ip-card">
       <div class="ip-row">
-        {#if countryFlags[ipInfo.country]}
-          <img src="https://flagcdn.com/w40/{countryFlags[ipInfo.country]}.png" class="flag-icon" alt="flag" />
+        {#if ipInfo.countryCode}
+          <img src="https://flagsapi.com/{ipInfo.countryCode.toUpperCase()}/flat/32.png" 
+               class="flag-icon" 
+               alt="flag"
+               on:error={(e) => e.target.style.display='none'} />
         {/if}
         <span class="label">PUBLIC IP:</span>
         <span class="value highlight">{ipInfo.query}</span>

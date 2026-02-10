@@ -47,6 +47,7 @@ export namespace main {
 	    query: string;
 	    city: string;
 	    country: string;
+	    countryCode: string;
 	    isp: string;
 	
 	    static createFrom(source: any = {}) {
@@ -58,6 +59,7 @@ export namespace main {
 	        this.query = source["query"];
 	        this.city = source["city"];
 	        this.country = source["country"];
+	        this.countryCode = source["countryCode"];
 	        this.isp = source["isp"];
 	    }
 	}
