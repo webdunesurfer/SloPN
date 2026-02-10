@@ -243,6 +243,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	
 	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s", addr))
 	
+	serverHost, _, _ := net.SplitHostPort(addr)
 	var ifceName string
 
 	defer func() {
@@ -335,7 +336,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		return
 	}
 	defer ifce.Close()
-	ifceName = ifce.Name()
+	ifceName = tunCfg.Name
 
 	// Update routing with known serverVIP and dynamic IF Name
 	h.tunIfce = ifce // Store for potential future use
