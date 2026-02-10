@@ -164,6 +164,11 @@ jobs:
         run: |
           move gui/build/bin/SloPN.exe bin/
 
+      - name: Build Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/windows/setup.iss
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
