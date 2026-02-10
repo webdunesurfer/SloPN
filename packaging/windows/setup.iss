@@ -69,6 +69,7 @@ function GetJSONValue(const JSON, Key: String): String;
 var
   KeyPos, ValueStart, i: Integer;
   SearchKey: String;
+  Char: String;
 begin
   Result := '';
   SearchKey := '"' + Key + '":"';
@@ -78,8 +79,9 @@ begin
     ValueStart := KeyPos + Length(SearchKey);
     for i := ValueStart to Length(JSON) do
     begin
-      if JSON[i] = '"' then Break;
-      Result := Result + JSON[i];
+      Char := Copy(JSON, i, 1);
+      if Char = '"' then Break;
+      Result := Result + Char;
     end;
   end;
 end;
