@@ -11,12 +11,7 @@ import "C"
 import (
 	"unsafe"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/wailsapp/wails/v2/pkg/options"
 )
-
-func getSystemTray() *options.SystemTray {
-	return nil // macOS uses CGO tray
-}
 
 // Exported callbacks for Objective-C
 //export tray_callback_show

@@ -44,11 +44,14 @@ func main() {
 		Bind: []interface{}{
 			wailsApp,
 		},
-		// We set the tray here via a platform-specific helper
-		SystemTray: getSystemTray(),
+		Menu: getAppMenu(),
 	})
 
 	if err != nil {
 		println("Error:", err.Error())
 	}
+}
+
+func getAppMenu() *menu.Menu {
+	return menu.NewMenu()
 }
