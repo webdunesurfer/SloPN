@@ -64,28 +64,6 @@ Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: ru
 var
   ConfigPage: TInputQueryWizardPage;
 
-// Helper to extract values from our simple config.json using basic string search
-function GetJSONValue(const JSON, Key: String): String;
-var
-  KeyPos, ValueStart, i: Integer;
-  SearchKey: String;
-  Char: String;
-begin
-  Result := '';
-  SearchKey := '"' + Key + '":"';
-  KeyPos := Pos(SearchKey, JSON);
-  if KeyPos > 0 then
-  begin
-    ValueStart := KeyPos + Length(SearchKey);
-    for i := ValueStart to Length(JSON) do
-    begin
-      Char := Copy(JSON, i, 1);
-      if Char = '"' then Break;
-      Result := Result + Char;
-    end;
-  end;
-end;
-
 procedure StopSloPNProcesses();
 var
   ResultCode: Integer;
@@ -97,9 +75,6 @@ begin
 end;
 
 procedure InitializeWizard;
-var
-  OldConfig: String;
-  ConfigPath: String;
 begin
   ConfigPage := CreateInputQueryPage(wpReady,
     'SloPN Configuration', 'Server Connection Details',
@@ -107,16 +82,8 @@ begin
   ConfigPage.Add('Server Address (e.g. 1.2.3.4:4242):', False);
   ConfigPage.Add('Auth Token:', True);
   
-  // Try to load existing config to pre-fill
-  ConfigPath := ExpandConstant('{userappdata}') + '\SloPN\config.json';
-  if FileExists(ConfigPath) then
-  begin
-    if LoadStringFromFile(ConfigPath, OldConfig) then
-    begin
-      ConfigPage.Values[0] := GetJSONValue(OldConfig, 'server');
-      ConfigPage.Values[1] := GetJSONValue(OldConfig, 'token');
-    end;
-  end;
+  ConfigPage.Values[0] := '';
+  ConfigPage.Values[1] := '';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
