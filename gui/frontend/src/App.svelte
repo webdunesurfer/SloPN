@@ -115,7 +115,7 @@
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
         setTimeout(() => {
           fetchIP();
-        }, 5000); // 5 second delay for routes to settle
+        }, 10000); // 10 second delay for routes to settle
       }
     });
 
