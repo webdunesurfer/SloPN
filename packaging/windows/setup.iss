@@ -32,19 +32,21 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; GUI
 Source: "..\..\gui\build\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Helper
-Source: "..\..\slopn-helper.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\slopn-helper.exe"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: StopSloPNService
 ; Drivers
 Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Install TAP Driver
-Filename: "{app}\driver	apinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
-; Create Helper Service
+Filename: "{app}\driver\tapinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
+; Create/Update Helper Service
 Filename: "{sys}\sc.exe"; Parameters: "create SloPNHelper binPath= ""{app}\{#MyHelperExeName}"" start= auto displayname= ""SloPN Privileged Helper"""; Flags: runhidden
+; Ensure binPath is updated if it changed
+Filename: "{sys}\sc.exe"; Parameters: "config SloPNHelper binPath= ""{app}\{#MyHelperExeName}"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start SloPNHelper"; Flags: runhidden
 ; Launch GUI
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
@@ -54,11 +56,21 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 Filename: "{sys}\sc.exe"; Parameters: "stop SloPNHelper"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "delete SloPNHelper"; Flags: runhidden
 ; Remove TAP Driver
-Filename: "{app}\driver	apinstall.exe"; Parameters: "remove tap0901"; Flags: runhidden
+Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: runhidden
 
 [Code]
 var
   ConfigPage: TInputQueryWizardPage;
+
+procedure StopSloPNService();
+var
+  ResultCode: Integer;
+begin
+  // Try to stop the service before overwriting files
+  Exec('sc.exe', 'stop SloPNHelper', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Give it a moment to release file handles
+  Sleep(1000);
+end;
 
 function InitializeSetup(): Boolean;
 begin
@@ -104,7 +116,6 @@ begin
     TokenVal := ConfigPage.Values[1];
     
     // We save this to %APPDATA%\SloPN\settings.json
-    // Note: We use ExpandConstant('{userappdata}') for the path
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);
     
@@ -115,10 +126,7 @@ begin
       '}';
     SaveStringToFile(SettingsPath + '\settings.json', SettingsContent, False);
 
-    // Also save the token to the Windows Credential Manager? 
-    // For now, the GUI handles the token via keyring on first connect if not present.
-    // But we can store it in a temporary config.json that the GUI reads on first run, 
-    // similar to the macOS installer.
+    // Also save the token for the GUI to pick up
     SaveStringToFile(SettingsPath + '\config.json', '{"server":"' + ServerVal + '", "token":"' + TokenVal + '"}', False);
   end;
 end;
