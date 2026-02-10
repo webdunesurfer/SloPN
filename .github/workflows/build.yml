@@ -5,8 +5,14 @@ on:
     branches: [ "main" ]
     tags:
       - 'v*'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
   build-linux:
