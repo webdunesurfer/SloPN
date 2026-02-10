@@ -12,9 +12,9 @@
   let loadingIP = false;
 
   const countryFlags = {
-    'Austria': '🇦🇹', 'France': '🇫🇷', 'Germany': '🇩🇪', 'United States': '🇺🇸',
-    'United Kingdom': '🇬🇧', 'Netherlands': '🇳🇱', 'Russia': '🇷🇺', 'Ukraine': '🇺🇦',
-    'Belgium': '🇧🇪', 'Finland': '🇫🇮', 'Germany': '🇩🇪'
+    'Austria': 'at', 'France': 'fr', 'Germany': 'de', 'United States': 'us',
+    'United Kingdom': 'gb', 'Netherlands': 'nl', 'Russia': 'ru', 'Ukraine': 'ua',
+    'Belgium': 'be', 'Finland': 'fi'
   };
 
   async function fetchIP() {
@@ -194,11 +194,13 @@
 
     <div class="card ip-card">
       <div class="ip-row">
+        {#if countryFlags[ipInfo.country]}
+          <img src="https://flagcdn.com/w40/{countryFlags[ipInfo.country]}.png" class="flag-icon" alt="flag" />
+        {/if}
         <span class="label">Public IP:</span>
         <span class="value highlight">{ipInfo.query}</span>
         <span class="label">Location:</span>
         <span class="value">{ipInfo.city}, {ipInfo.country}</span>
-        <span class="flag">{countryFlags[ipInfo.country] || '🌐'}</span>
       </div>
     </div>
 
@@ -362,9 +364,11 @@
     font-weight: bold;
   }
 
-  .flag {
-    margin-left: auto;
-    font-size: 1.2rem;
+  .flag-icon {
+    width: 20px;
+    height: 14px;
+    border-radius: 2px;
+    margin-right: 5px;
   }
 
   .value.loading {
