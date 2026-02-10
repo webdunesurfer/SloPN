@@ -3,7 +3,10 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -25,27 +28,64 @@ func (h *Helper) setupDNS() {
 
 func (h *Helper) restoreDNS() {
 	logHelper("[DNS] Restoring DNS for slopn-tap0...")
-	cmd := exec.Command("netsh", "interface", "ip", "set", "dns", "name=slopn-tap0", "source=dhcp")
+	exec.Command("netsh", "interface", "ip", "set", "dns", "name=slopn-tap0", "source=dhcp").Run()
 	exec.Command("ipconfig", "/flushdns").Run()
-	if output, err := cmd.CombinedOutput(); err != nil {
-		logHelper(fmt.Sprintf("[DNS] Restore Error: %v (output: %s)", err, string(output)))
-	}
 }
 
+// getLogs efficiently reads the last N bytes of the log file using native Go
 func (h *Helper) getLogs() string {
-	out, err := exec.Command("powershell", "-Command", fmt.Sprintf("Get-Content '%s' -Tail 100", LogPath)).Output()
+	f, err := os.Open(LogPath)
 	if err != nil {
-		return "Failed to read logs: " + err.Error()
+		return "Unable to open log file"
 	}
-	return string(out)
-}
+	defer f.Close()
 
-func (h *Helper) getInterfaceIndex(name string) string {
-	out, err := exec.Command("powershell", "-Command", fmt.Sprintf("(Get-NetAdapter -Name '%s').ifIndex", name)).Output()
+	stat, err := f.Stat()
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+
+	filesize := stat.Size()
+	readSize := int64(2048) // Read last 2KB
+	if filesize < readSize {
+		readSize = filesize
+	}
+
+	buf := make([]byte, readSize)
+	f.Seek(-readSize, 2) // Seek relative to end
+	n, err := f.Read(buf)
+	if err != nil {
+		return ""
+	}
+
+	// cleanup potential partial line at start
+	content := string(buf[:n])
+	firstNewline := strings.Index(content, "\n")
+	if firstNewline > -1 && firstNewline < len(content)-1 {
+		return content[firstNewline+1:]
+	}
+	return content
+}
+
+func (h *Helper) getInterfaceIndex(name string) string {
+	// Use netsh instead of PowerShell for performance
+	// Output format: "Idx     Met         MTU          State                Name"
+	out, err := exec.Command("netsh", "interface", "ip", "show", "interfaces").Output()
+	if err != nil {
+		return ""
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, name) {
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[0] // The first field is the Index
+			}
+		}
+	}
+	return ""
 }
 
 func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
@@ -67,13 +107,23 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
 	
 	logHelper(fmt.Sprintf("[VPN] Configuring Full Tunnel via IF %s...", ifIndex))
 
-	gwOut, _ := exec.Command("powershell", "-Command", "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1).NextHop").Output()
-	currentGW := strings.TrimSpace(string(gwOut))
-
-	if currentGW != "" && currentGW != "0.0.0.0" {
-		logHelper(fmt.Sprintf("[VPN] Original Gateway: %s. Pinning server route.", currentGW))
-		// Important: serverHost route MUST use the physical gateway
-		exec.Command("route", "add", serverHost, currentGW, "metric", "1").Run()
+	// Get Gateway using netsh or route print (avoiding PS)
+	// Simplifying gateway detection for now: trust standard route command
+	// Ideally we find the gateway IP, but for pinning route, we can try relying on existing routes
+	
+	// 1. Add host route to VPN server to prevent loops.
+	// Since we are replacing PS, finding the exact Gateway IP natively is hard without parsing 'route print'.
+	// Fallback: Let's use 'route add ...' without gateway IF we assume it picks the right interface,
+	// BUT for safety, we simply assume the user has a default gateway 192.168.x.x or similar.
+	// To fix the CPU issue quickly, I will skip the dynamic GW detection loop if it relies on PS 
+	// and assume the OS handles the specific route to the server IP if we don't mess with 0.0.0.0/0 directly.
+	// BUT we ARE adding 0.0.0.0/1.
+	
+	// Let's bring back a LIGHTWEIGHT gateway check using route print
+	gwIP := getGatewayIP()
+	if gwIP != "" {
+		logHelper(fmt.Sprintf("[VPN] Pinning server route via %s", gwIP))
+		exec.Command("route", "add", serverHost, "mask", "255.255.255.255", gwIP, "metric", "1").Run()
 	}
 
 	logHelper("[VPN] Redirecting all traffic through TUN...")
@@ -81,6 +131,20 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP string) {
 	exec.Command("route", "add", "128.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
 	
 	h.setupDNS()
+}
+
+func getGatewayIP() string {
+	out, _ := exec.Command("route", "print", "0.0.0.0").Output()
+	// Look for: "          0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.50     25"
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) >= 5 && fields[0] == "0.0.0.0" && fields[1] == "0.0.0.0" {
+			return fields[2] // Gateway IP
+		}
+	}
+	return ""
 }
 
 func (h *Helper) cleanupRouting(full bool, serverHost string) {
