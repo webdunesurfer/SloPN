@@ -30,9 +30,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; GUI
-Source: "..\..\gui\build\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Helper
-Source: "..\..\slopn-helper.exe"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: StopSloPNService
+Source: "..\..\bin\{#MyHelperExeName}"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: StopSloPNService
 ; Drivers
 Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 
