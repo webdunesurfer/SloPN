@@ -44,8 +44,8 @@ func tray_callback_about() {
 	}
 }
 
-func initTray(title string) {
-	cTitle := C.CString(title)
+func initTray(ctx context.Context) {
+	cTitle := C.CString("SloPN")
 	defer C.free(unsafe.Pointer(cTitle))
 	C.init_tray(cTitle)
 }

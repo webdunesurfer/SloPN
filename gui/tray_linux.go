@@ -2,11 +2,13 @@
 
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
-func initTray(title string) {
-	fmt.Printf("[GUI] Tray initialized with title: %s (Linux Tray todo)
-", title)
+func initTray(ctx context.Context) {
+	fmt.Printf("[GUI] Tray initialized (Linux Tray todo)\n")
 }
 
 func updateTrayStatus(connected bool) {

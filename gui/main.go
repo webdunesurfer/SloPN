@@ -7,12 +7,18 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-var wailsApp *App
+//go:embed build/windows/icon.ico
+var icon []byte
+
+func getAppMenu() *menu.Menu {
+	return menu.NewMenu()
+}
 
 func main() {
 	// Create an instance of the app structure
@@ -31,7 +37,7 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 26, G: 26, B: 26, A: 1},
 		OnStartup: func(ctx context.Context) {
 			wailsApp.startup(ctx)
-			initTray("SloPN")
+			initTray(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
 			wailsApp.Disconnect()
@@ -40,6 +46,7 @@ func main() {
 		Bind: []interface{}{
 			wailsApp,
 		},
+		Menu: getAppMenu(),
 	})
 
 	if err != nil {

@@ -2,13 +2,34 @@
 
 package main
 
-import "fmt"
+import (
+	"context"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
 
-func initTray(title string) {
-	fmt.Printf("[GUI] Tray initialized with title: %s (Windows Tray todo)\n", title)
+func initTray(ctx context.Context) {
+	appIcon := icon // Uses the embedded icon from main.go
+
+	systemTrayMenu := menu.NewMenu()
+	systemTrayMenu.AddText("Show SloPN", nil, func(_ *menu.CallbackData) {
+		runtime.WindowShow(ctx)
+		runtime.WindowUnminimise(ctx)
+	})
+	systemTrayMenu.AddSeparator()
+	systemTrayMenu.AddText("About", nil, func(_ *menu.CallbackData) {
+		wailsApp.ShowAbout()
+	})
+	systemTrayMenu.AddSeparator()
+	systemTrayMenu.AddText("Quit", nil, func(_ *menu.CallbackData) {
+		wailsApp.Disconnect()
+		runtime.Quit(ctx)
+	})
+
+	runtime.SystemTraySetMenu(ctx, systemTrayMenu)
+	runtime.SystemTraySetIcon(ctx, appIcon)
 }
 
 func updateTrayStatus(connected bool) {
-	// Wails usually handles window management. 
-	// We can implement actual Windows NotifyIcon logic here later if needed.
+	// Optional: Change icon or label based on connection
 }
