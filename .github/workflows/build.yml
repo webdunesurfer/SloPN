@@ -53,7 +53,7 @@ jobs:
       - name: Build Helper
         run: |
           mkdir -p bin
-          go build -o bin/slopn-helper ./cmd/helper/main.go
+          go build -o bin/slopn-helper ./cmd/helper
 
       - name: Build GUI (Wails)
         run: |
@@ -128,9 +128,48 @@ jobs:
           name: SloPN-MacOS-Installer
           path: bin/SloPN-Installer.pkg
 
+  build-windows:
+    name: Build Windows Client
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Helper
+        run: |
+          mkdir bin
+          go build -o bin/slopn-helper.exe ./cmd/helper
+
+      - name: Build GUI (Wails)
+        run: |
+          cd gui
+          wails build -platform windows/amd64 -o SloPN.exe
+          
+      - name: Move GUI to bin
+        run: |
+          move gui/build/bin/SloPN.exe bin/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-client
+          path: bin/*
+
   release:
     name: Create Release
-    needs: [build-linux, build-macos]
+    needs: [build-linux, build-macos, build-windows]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -148,5 +187,7 @@ jobs:
           files: |
             server-linux/server_linux
             SloPN-MacOS-Installer/SloPN-Installer.pkg
+            windows-client/SloPN.exe
+            windows-client/slopn-helper.exe
           draft: true
           generate_release_notes: true
