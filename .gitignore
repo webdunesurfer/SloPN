@@ -3,10 +3,25 @@ config.json
 config2.json
 
 # Build Artifacts
-/bin/
+bin/
 /packaging/payload/
+*.exe
+*.exe~
+*.app
+*.pkg
+*.dmg
+*.msi
+
+# Wails / Node
+frontend/dist/
+frontend/node_modules/
+wailsjs/
 
 # OS
-.DS_Store*.log
+.DS_Store
+*.log
 bin/logs/
-docs/security-improvement.md
+
+# IDE
+.vscode/
+.idea/
