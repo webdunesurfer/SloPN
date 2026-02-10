@@ -10,6 +10,7 @@ This phase is divided into modular steps to ensure a stable and secure rollout:
 3.  **[Phase 5.3: macOS Packaging (.pkg)](phase5.3-macos-packaging.md)** - Creating the installer.
 4.  **[Phase 5.4: Server Dockerization](phase5.4-server-docker.md)** - Containerizing the server for secure deployment.
 5.  **[Phase 5.5: Windows Porting](phase5.5-windows-port.md)** - Extending to Windows.
+6.  **[Phase 5.6: GUI IP & Geo-Location](phase5.6-gui-ip-location.md)** - Visual connection verification.
 
 ## Architectural Decisions
 All implementations must follow the established ADRs:
