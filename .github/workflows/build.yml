@@ -153,11 +153,14 @@ jobs:
           go build -o bin/slopn-helper.exe ./cmd/helper
 
       - name: Build GUI (Wails)
+        shell: pwsh
         run: |
+          $env:Path += ";$(go env GOPATH)\bin"
           cd gui
-          wails build -platform windows/amd64 -o SloPN.exe
+          wails build -platform windows/amd64
           
       - name: Move GUI to bin
+        shell: pwsh
         run: |
           move gui/build/bin/SloPN.exe bin/
 
