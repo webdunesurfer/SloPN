@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -49,6 +51,18 @@ type Helper struct {
 func (h *Helper) loadIPCSecret() {
 	data, err := os.ReadFile(SecretPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			logHelper("IPC Secret not found. Generating new one...")
+			b := make([]byte, 32)
+			if _, err := rand.Read(b); err == nil {
+				secret := hex.EncodeToString(b)
+				if err := os.WriteFile(SecretPath, []byte(secret), 0600); err == nil {
+					h.ipcSecret = secret
+					logHelper("Generated and saved new IPC Secret.")
+					return
+				}
+			}
+		}
 		logHelper(fmt.Sprintf("WARNING: Could not read IPC secret: %v. IPC will be unsecured!", err))
 		return
 	}

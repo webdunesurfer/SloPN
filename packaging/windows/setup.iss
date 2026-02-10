@@ -38,7 +38,7 @@ Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autoprodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Install TAP Driver
@@ -72,12 +72,6 @@ begin
   Sleep(1000);
 end;
 
-function InitializeSetup(): Boolean;
-begin
-  Randomize;
-  Result := True;
-end;
-
 procedure InitializeWizard;
 begin
   ConfigPage := CreateInputQueryPage(wpReady,
@@ -86,15 +80,12 @@ begin
   ConfigPage.Add('Server Address (e.g. 1.2.3.4:4242):', False);
   ConfigPage.Add('Auth Token:', True); // Password/Hidden field
   
-  // Set default values if needed
   ConfigPage.Values[0] := '';
   ConfigPage.Values[1] := '';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Secret: String;
-  SecretPath: String;
   SettingsPath: String;
   SettingsContent: String;
   ServerVal: String;
@@ -102,31 +93,17 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    // 1. Generate IPC secret if it doesn't exist
-    SecretPath := 'C:\ProgramData\SloPN\ipc.secret';
-    if not FileExists(SecretPath) then
-    begin
-      ForceDirectories('C:\ProgramData\SloPN');
-      Secret := IntToHex(Random(2147483647), 8) + IntToHex(Random(2147483647), 8);
-      SaveStringToFile(SecretPath, Secret, False);
-    end;
-
-    // 2. Save User Configuration from Wizard
     ServerVal := ConfigPage.Values[0];
     TokenVal := ConfigPage.Values[1];
     
-    // We save this to %APPDATA%\SloPN\settings.json
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);
     
-    // Create a simple JSON structure
     SettingsContent := '{' + #13#10 +
       '  "server": "' + ServerVal + '",' + #13#10 +
       '  "full_tunnel": false' + #13#10 +
       '}';
     SaveStringToFile(SettingsPath + '\settings.json', SettingsContent, False);
-
-    // Also save the token for the GUI to pick up
     SaveStringToFile(SettingsPath + '\config.json', '{"server":"' + ServerVal + '", "token":"' + TokenVal + '"}', False);
   end;
 end;
