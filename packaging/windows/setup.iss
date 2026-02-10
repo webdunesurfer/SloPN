@@ -64,12 +64,11 @@ Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: ru
 var
   ConfigPage: TInputQueryWizardPage;
 
-// Helper to extract values from our simple config.json
+// Helper to extract values from our simple config.json using basic string search
 function GetJSONValue(const JSON, Key: String): String;
 var
-  KeyPos, ValueStart, ValueEnd: Integer;
+  KeyPos, ValueStart, i: Integer;
   SearchKey: String;
-  Remainder: String;
 begin
   Result := '';
   SearchKey := '"' + Key + '":"';
@@ -77,10 +76,11 @@ begin
   if KeyPos > 0 then
   begin
     ValueStart := KeyPos + Length(SearchKey);
-    Remainder := Copy(JSON, ValueStart, 1000);
-    ValueEnd := Pos('"', Remainder);
-    if ValueEnd > 0 then
-      Result := Copy(Remainder, 1, ValueEnd - 1);
+    for i := ValueStart to Length(JSON) do
+    begin
+      if JSON[i] = '"' then Break;
+      Result := Result + JSON[i];
+    end;
   end;
 end;
 
