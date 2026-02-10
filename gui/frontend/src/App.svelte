@@ -18,10 +18,21 @@
   };
 
   async function fetchIP() {
+    console.log("Fetching public IP info...");
     loadingIP = true;
     try {
       const info = await GetPublicIPInfo();
-      if (info) ipInfo = info;
+      console.log("IP Info received:", info);
+      if (info) {
+        // Ensure we handle both potential formats (lowercase/camelCase) from Wails
+        ipInfo = {
+          query: info.query || '---',
+          city: info.city || '---',
+          country: info.country || '---',
+          countryCode: info.countryCode || '---',
+          isp: info.isp || '---'
+        };
+      }
     } catch (e) {
       console.error("IP check failed:", e);
     } finally {

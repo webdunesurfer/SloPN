@@ -278,19 +278,23 @@ func (a *App) GetLogs() (string, error) {
 
 // GetPublicIPInfo fetches the current public IP and location
 func (a *App) GetPublicIPInfo() (*IPInfo, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+	fmt.Println("[GUI] Fetching public IP info...")
+	client := &http.Client{Timeout: 10 * time.Second}
 	// Add timestamp to bypass local caches
 	url := fmt.Sprintf("http://ip-api.com/json?t=%d", time.Now().Unix())
 	resp, err := client.Get(url)
 	if err != nil {
+		fmt.Printf("[GUI] IP check error: %v\n", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	var info IPInfo
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		fmt.Printf("[GUI] IP decode error: %v\n", err)
 		return nil, err
 	}
+	fmt.Printf("[GUI] IP Info: %s, %s, %s\n", info.Query, info.City, info.Country)
 	return &info, nil
 }
 
