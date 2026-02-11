@@ -41,6 +41,27 @@ If the application opens but remains blank:
 2. Run the installer (requires administrator privileges).
 3. Open **SloPN** from your Applications folder.
 
+### 🛠 Using the CLI Client (Windows)
+SloPN includes a headless CLI tool (`slopn-cli.exe`) ideal for scripting or older systems.
+
+**Common Commands:**
+```powershell
+# Check status
+slopn-cli status
+
+# Connect using saved config (from installer or GUI)
+slopn-cli connect
+
+# Connect with manual flags (overrides config)
+slopn-cli connect -server 1.2.3.4:4242 -token your-token -full
+
+# Disconnect
+slopn-cli disconnect
+
+# View logs
+slopn-cli logs
+```
+
 ### Manual Development Setup
 ```bash
 git clone https://github.com/webdunesurfer/SloPN.git

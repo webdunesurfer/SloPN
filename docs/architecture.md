@@ -33,6 +33,8 @@ To ensure complete metadata privacy and prevent leaks, SloPN implements a self-h
 
 ### Windows (Client)
 - **Helper (Engine):** Unified privileged service managed by the Windows Service Control Manager (SCM).
+- **GUI Dashboard:** Wails-based Svelte application with WebView2 rendering.
+- **CLI Client:** Headless command-line controller (`slopn-cli.exe`) interacting with the Helper via IPC.
 - **TUN Interface:** Utilizes the **TAP-Windows V9** driver with automated discovery and explicit naming (`slopn-tap0`).
 - **DNS Protection:** Aggressive system-wide protection by forcing all active network adapters to the VPN's internal DNS resolver while connected.
 - **Tray Integration:** Native Win32 API implementation for the taskbar notification area.
@@ -47,5 +49,6 @@ To ensure complete metadata privacy and prevent leaks, SloPN implements a self-h
 - **`pkg/ipc`:** Inter-Process Communication between GUI and Helper.
 - **`pkg/tunutil`:** Multi-platform TUN interface abstraction and OS-specific configuration.
 - **`cmd/helper`:** Unified engine codebase using build tags for platform-specific networking logic.
+- **`cmd/cli`:** Windows-specific headless client for command-line operation.
 - **`pkg/session`:** Server-side session management and IPAM.
 - **`pkg/iputil`:** IP header manipulation and packet inspection.
