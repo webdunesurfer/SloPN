@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	GUIVersion = "0.5.7"
+	GUIVersion = "0.6.1"
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
 )
