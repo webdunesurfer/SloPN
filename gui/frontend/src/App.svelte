@@ -85,19 +85,29 @@
     const saved = await GetSavedConfig();
     
     // 2. Determine initial values
-    if (isNew || !saved.server || !saved.token) {
-      // Force load from installer if marker is present OR if no user config exists
+    if (isNew) {
+      // FORCE load from installer if marker is present
       const initConfig = await GetInitialConfig();
+      console.log("[GUI] New install detected. Loading from installer:", initConfig);
       
+      server = initConfig.server || "";
+      token = initConfig.token || "";
+      fullTunnel = true;
+      obfuscate = initConfig.obfuscate !== undefined ? initConfig.obfuscate : true;
+
+      // Save to user settings immediately so it's consistent
+      handleConfigChange();
+    } else if (!saved.server || !saved.token) {
+      // Legacy fallback if no user config exists
+      const initConfig = await GetInitialConfig();
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
       obfuscate = initConfig.obfuscate !== undefined ? initConfig.obfuscate : (saved.obfuscate !== undefined ? saved.obfuscate : true);
-
-      // Save to user settings immediately so it's consistent
       handleConfigChange();
     } else {
       // Normal load from existing user settings
+      console.log("[GUI] Loading existing user settings:", saved);
       if (saved.server) server = saved.server;
       if (saved.token) token = saved.token;
       if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;

@@ -66,6 +66,7 @@ export namespace main {
 	export class InitialConfig {
 	    server: string;
 	    token: string;
+	    obfuscate: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new InitialConfig(source);
@@ -75,6 +76,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.server = source["server"];
 	        this.token = source["token"];
+	        this.obfuscate = source["obfuscate"];
 	    }
 	}
 
