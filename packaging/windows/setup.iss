@@ -148,13 +148,10 @@ begin
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);
     
-    SettingsContent := '{' + #13#10 +
-      '  "server": "' + ServerVal + '",' + #13#10 +
-      '  "full_tunnel": true,' + #13#10 +
-      '  "obfuscate": true' + #13#10 +
-      '}';
-    SaveStringToFile(SettingsPath + '\settings.json', SettingsContent, False);
-    SaveStringToFile(SettingsPath + '\config.json', '{"server":"' + ServerVal + '", "token":"' + TokenVal + '"}', False);
+    // Write initial config (including token and obfuscate default) to ProgramData
+    // This allows the GUI to pick it up via GetInitialConfig()
+    SaveStringToFile(ExpandConstant('{commonappdata}') + '\SloPN\config.json', 
+      '{"server":"' + ServerVal + '", "token":"' + TokenVal + '", "obfuscate": true}', False);
 
     // Create new install marker for GUI
     SaveStringToFile('C:\ProgramData\SloPN\.new_install', '', False);
