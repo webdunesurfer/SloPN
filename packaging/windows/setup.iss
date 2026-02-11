@@ -1,5 +1,5 @@
 #define MyAppName "SloPN"
-#define MyAppVersion "0.7.1"
+#define MyAppVersion "0.7.2"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
 #define MyAppExeName "SloPN.exe"
@@ -35,6 +35,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\..\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Helper
 Source: "..\..\bin\{#MyHelperExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; CLI
+Source: "..\..\bin\slopn-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Drivers
 Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 

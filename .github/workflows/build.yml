@@ -157,6 +157,7 @@ jobs:
         run: |
           mkdir bin
           go build -o bin/slopn-helper.exe ./cmd/helper
+          go build -o bin/slopn-cli.exe ./cmd/cli
 
       - name: Build GUI (Wails)
         shell: pwsh
