@@ -134,10 +134,9 @@
       status = data;
       // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
-        // Record current IP as the one we want to CHANGE from
-        lastKnownIP = ipInfo.query;
-        console.log(`State changed. Waiting for IP to change from ${lastKnownIP}...`);
-        fetchIP(true);
+        // Double-tap strategy to catch routing updates
+        setTimeout(fetchIP, 2000);  // Quick check
+        setTimeout(fetchIP, 15000); // Final check after routes settle
       }
     });
 
