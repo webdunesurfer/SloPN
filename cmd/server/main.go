@@ -281,13 +281,13 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	json.NewEncoder(stream).Encode(resp)
 
 	sm.AddSession(vip, conn)
-	fmt.Printf("Client connected: %s\n", vip)
+	fmt.Printf("Client connected: %s (from %s)\n", vip, conn.RemoteAddr())
 
 	ctx := conn.Context()
 	go func() {
 		defer func() {
 			sm.RemoveSession(vip.String())
-			fmt.Printf("Client disconnected: %s\n", vip)
+			fmt.Printf("Client disconnected: %s (from %s)\n", vip, conn.RemoteAddr())
 		}()
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
