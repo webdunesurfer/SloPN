@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -45,6 +46,10 @@ func main() {
 		},
 		Bind: []interface{}{
 			wailsApp,
+		},
+		Windows: &windows.Options{
+			WebviewUserDataFolder:    "SloPN", // Store webview data in SloPN folder
+			WebviewBrowserCommandLine: "--disable-gpu", // Compatibility for old hardware
 		},
 		Menu: getAppMenu(),
 		Mac: &mac.Options{

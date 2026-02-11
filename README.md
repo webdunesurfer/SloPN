@@ -31,6 +31,11 @@ For detailed information on various aspects of the project, please refer to the 
 3. Enter your Server Address and Token during the installation wizard.
 4. Launch **SloPN** from your desktop or Start menu.
 
+#### 💡 Troubleshooting: Blank/White Window on Windows
+If the application opens but remains blank:
+1.  Install the **[Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)**. This is a common dependency for WebView2.
+2.  Ensure your Graphics Drivers are up to date.
+
 ###  macOS
 1. Download `SLoPN-MAC-Installer.pkg` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
 2. Run the installer (requires administrator privileges).

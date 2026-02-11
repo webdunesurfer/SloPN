@@ -163,7 +163,7 @@ jobs:
         run: |
           $env:Path += ";$(go env GOPATH)\bin"
           cd gui
-          wails build -platform windows/amd64
+          wails build -platform windows/amd64 -tags native_webview2loader
           
       - name: Move GUI to bin
         shell: pwsh
