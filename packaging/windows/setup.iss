@@ -111,10 +111,8 @@ begin
       // However, we can use PowerShell to download it.
       ExtractTemporaryFile('tapinstall.exe'); // Just a placeholder to ensure {tmp} exists
       
-      StatusLabel.Caption := 'Downloading Visual C++ Redistributable...';
       if Exec('powershell.exe', '-ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri ''' + VCRedistURL + ''' -OutFile ''' + VCRedistPath + '''"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
       begin
-        StatusLabel.Caption := 'Installing Visual C++ Redistributable...';
         if Exec(VCRedistPath, '/quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
         begin
           // Success
