@@ -7,7 +7,7 @@
   let token = "";
   let fullTunnel = true;
   let obfuscate = false;
-  let guiVersion = "0.6.3";
+  let guiVersion = "0.6.4";
 
   let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
   let loadingIP = false;

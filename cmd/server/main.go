@@ -111,7 +111,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 }
 
-const ServerVersion = "0.6.3"
+const ServerVersion = "0.6.4"
 
 // Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
 func logServer(event, vip, remote, details string) {
