@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -110,6 +111,9 @@ func logHelper(msg string) {
 }
 
 func (h *Helper) run(ctx context.Context) error {
+	// Ensure configuration directory exists (for logs and secrets)
+	os.MkdirAll(filepath.Dir(LogPath), 0755)
+
 	h.loadIPCSecret()
 
 	l, err := net.Listen("tcp", TCPAddr)

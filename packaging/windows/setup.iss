@@ -103,6 +103,9 @@ begin
     ServerVal := ConfigPage.Values[0];
     TokenVal := ConfigPage.Values[1];
     
+    // Ensure ProgramData directory exists for logs/secrets
+    ForceDirectories(ExpandConstant('{commonappdata}') + '\SloPN');
+
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);
     
