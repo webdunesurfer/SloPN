@@ -175,7 +175,7 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/windows/setup.iss
           # Rename for release
-          move bin/SloPN-Setup.exe bin/SLoPn-Win10+11-Setup.exe
+          move bin/SloPN-Setup.exe bin/SLoPN-Win10+11-Setup.exe
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -203,6 +203,6 @@ jobs:
           files: |
             server-linux/server_linux
             SloPN-MacOS-Installer/SLoPN-MAC-Installer.pkg
-            windows-client/SLoPn-Win10+11-Setup.exe
+            windows-client/SLoPN-Win10+11-Setup.exe
           draft: true
           generate_release_notes: true
