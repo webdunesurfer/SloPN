@@ -18,19 +18,17 @@
   };
 
   async function fetchIP() {
-    console.log("Fetching public IP info...");
     loadingIP = true;
     try {
       const info = await GetPublicIPInfo();
-      console.log("IP Info received:", info);
       if (info) {
-        // Ensure we handle both potential formats (lowercase/camelCase) from Wails
+        // Defensive mapping: handle different casing from Wails
         ipInfo = {
-          query: info.query || '---',
-          city: info.city || '---',
-          country: info.country || '---',
-          countryCode: info.countryCode || '---',
-          isp: info.isp || '---'
+          query: info.query || info.Query || '---',
+          city: info.city || info.City || '---',
+          country: info.country || info.Country || '---',
+          countryCode: info.countryCode || info.CountryCode || '',
+          isp: info.isp || info.ISP || '---'
         };
       }
     } catch (e) {
