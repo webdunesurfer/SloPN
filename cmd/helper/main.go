@@ -393,8 +393,8 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 	case <-ctx.Done():
 		logHelper("[VPN] Context cancelled")
 		return
-	case <-errChan:
-		logHelper("[VPN] Data channel error")
+	case err := <-errChan:
+		logHelper(fmt.Sprintf("[VPN] Data channel error: %v", err))
 		return
 	}
 }
