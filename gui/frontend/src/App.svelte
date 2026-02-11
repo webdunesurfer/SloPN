@@ -328,16 +328,18 @@
         <label for="token">Auth Token</label>
         <input id="token" type="password" bind:value={token} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
-      <div class="input-group checkbox-row">
-        <div class="checkbox-item">
-          <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
-          <label for="full">Full Tunnel</label>
-        </div>
-        <div class="checkbox-item">
-          <input id="obfs" type="checkbox" bind:checked={obfuscate} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
-          <label for="obfs">Stealth Mode (DPI Protection)</label>
-        </div>
-      </div>
+      <table class="checkbox-table">
+        <tr>
+          <td class="checkbox-cell">
+            <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
+            <label for="full">Full Tunnel</label>
+          </td>
+          <td class="checkbox-cell">
+            <input id="obfs" type="checkbox" bind:checked={obfuscate} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
+            <label for="obfs">Stealth Mode (DPI Protection)</label>
+          </td>
+        </tr>
+      </table>
     </div>
 
     {#if errorMsg}
@@ -561,20 +563,31 @@
     padding: 12px;
   }
 
-  .input-group.checkbox-row {
-    grid-column: span 2;
-    display: flex;
-    gap: 15px;
-    align-items: center;
+  .checkbox-table {
+    width: 100%;
     margin-top: 5px;
-    justify-content: space-between;
+    border-collapse: collapse;
   }
 
-  .checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  .checkbox-cell {
+    padding-right: 15px;
     white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .checkbox-cell input {
+    vertical-align: middle;
+    margin-right: 6px;
+    width: auto;
+    display: inline-block;
+  }
+
+  .checkbox-cell label {
+    display: inline-block;
+    font-size: 0.65rem;
+    color: #888;
+    margin: 0;
+    vertical-align: middle;
   }
 
   .input-group label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 2px; }
@@ -590,7 +603,6 @@
   }
 
   .input-group.checkbox { display: flex; align-items: center; gap: 8px; }
-  .input-group.checkbox input { width: auto; }
 
   .error-banner {
     background: rgba(255, 68, 68, 0.2);
