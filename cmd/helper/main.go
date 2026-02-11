@@ -21,6 +21,7 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 	"github.com/webdunesurfer/SloPN/pkg/iputil"
+	"github.com/webdunesurfer/SloPN/pkg/obfuscator"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
@@ -39,6 +40,7 @@ type Helper struct {
 	helperVersion string
 	serverVersion string
 	fullTunnel    bool
+	obfuscate     bool
 	bytesSent     uint64
 	bytesRecv     uint64
 	startTime     time.Time
@@ -172,8 +174,8 @@ func (h *Helper) handleIPC(c net.Conn) {
 
 	switch req.Command {
 	case ipc.CmdConnect:
-		logHelper(fmt.Sprintf("[IPC] Connecting to %s", req.ServerAddr))
-		err := h.connect(req.ServerAddr, req.Token, req.FullTunnel)
+		logHelper(fmt.Sprintf("[IPC] Connecting to %s (Obfs: %v)", req.ServerAddr, req.Obfuscate))
+		err := h.connect(req.ServerAddr, req.Token, req.FullTunnel, req.Obfuscate)
 		if err != nil {
 			resp = ipc.Response{Status: "error", Message: err.Error()}
 		} else {
@@ -209,7 +211,7 @@ func (h *Helper) disconnect() {
 	h.startTime = time.Time{}
 }
 
-func (h *Helper) connect(addr, token string, full bool) error {
+func (h *Helper) connect(addr, token string, full, obfs bool) error {
 	h.mu.Lock()
 	if h.state == "connected" || h.state == "connecting" {
 		h.mu.Unlock()
@@ -218,6 +220,7 @@ func (h *Helper) connect(addr, token string, full bool) error {
 	h.state = "connecting"
 	h.serverAddr = addr
 	h.fullTunnel = full
+	h.obfuscate = obfs
 	h.mu.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -225,7 +228,7 @@ func (h *Helper) connect(addr, token string, full bool) error {
 	h.cancelVPN = cancel
 	h.mu.Unlock()
 
-	go h.vpnLoop(ctx, addr, token, full)
+	go h.vpnLoop(ctx, addr, token, full, obfs)
 	return nil
 }
 
@@ -242,11 +245,11 @@ func getLocalIP() string {
 	return "0.0.0.0"
 }
 
-func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
+func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs bool) {
 	h.vpnWG.Add(1)
 	defer h.vpnWG.Done()
 	
-	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s", addr))
+	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s (Obfs: %v)", addr, obfs))
 	
 	serverHost, _, _ := net.SplitHostPort(addr)
 	var ifceName string
@@ -277,6 +280,12 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 		return
 	}
 	defer udpConn.Close()
+
+	var finalConn net.PacketConn = udpConn
+	if obfs {
+		logHelper("[VPN] Protocol Obfuscation enabled.")
+		finalConn = obfuscator.NewObfuscatedConn(udpConn, token)
+	}
 	
 	remoteAddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
@@ -289,7 +298,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full bool) {
 	dialCtx, dialCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer dialCancel()
 
-	conn, err := quic.Dial(dialCtx, udpConn, remoteAddr, tlsConf, &quic.Config{EnableDatagrams: true})
+	conn, err := quic.Dial(dialCtx, finalConn, remoteAddr, tlsConf, &quic.Config{EnableDatagrams: true})
 	if err != nil {
 		logHelper(fmt.Sprintf("[VPN] QUIC Dial error: %v", err))
 		return

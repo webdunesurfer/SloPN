@@ -21,6 +21,7 @@ import (
 	"github.com/songgao/water"
 	"github.com/webdunesurfer/SloPN/pkg/certutil"
 	"github.com/webdunesurfer/SloPN/pkg/iputil"
+	"github.com/webdunesurfer/SloPN/pkg/obfuscator"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
 	"github.com/webdunesurfer/SloPN/pkg/session"
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
@@ -49,6 +50,7 @@ var (
 	port      = flag.Int("port", 4242, "UDP Port to listen on")
 	token     = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
+	obfs      = flag.Bool("obfs", false, "Enable protocol obfuscation (XOR)")
 
 	// Rate Limiting Config
 	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
@@ -184,7 +186,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := quic.ListenAddr(fmt.Sprintf("0.0.0.0:%d", *port), tlsConfig, &quic.Config{
+	udpConn, err := net.ListenPacket("udp4", fmt.Sprintf("0.0.0.0:%d", *port))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var finalConn net.PacketConn = udpConn
+	if *obfs {
+		fmt.Println("[SECURITY] Protocol Obfuscation (XOR) enabled.")
+		finalConn = obfuscator.NewObfuscatedConn(udpConn, *token)
+	}
+
+	listener, err := quic.Listen(finalConn, tlsConfig, &quic.Config{
 		EnableDatagrams: true,
 	})
 	if err != nil {

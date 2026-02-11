@@ -6,6 +6,7 @@
   let server = "";
   let token = "";
   let fullTunnel = true;
+  let obfuscate = false;
   let guiVersion = "0.6.3";
 
   let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
@@ -45,7 +46,7 @@
   }
 
   function handleConfigChange() {
-    SaveConfig(server, token, fullTunnel);
+    SaveConfig(server, token, fullTunnel, obfuscate);
   }
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
@@ -91,6 +92,7 @@
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
+      obfuscate = saved.obfuscate !== undefined ? saved.obfuscate : false;
 
       // Save to user settings immediately so it's consistent
       handleConfigChange();
@@ -99,6 +101,7 @@
       if (saved.server) server = saved.server;
       if (saved.token) token = saved.token;
       if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
+      if (saved.obfuscate !== undefined) obfuscate = saved.obfuscate;
     }
 
     // Initial status fetch
@@ -183,7 +186,7 @@
     errorMsg = "";
     try {
       if (status.state === 'disconnected') {
-        const res = await Connect(server, token, fullTunnel);
+        const res = await Connect(server, token, fullTunnel, obfuscate);
         if (res !== "success") {
           showError(res);
         }
@@ -318,6 +321,10 @@
       <div class="input-group checkbox">
         <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
         <label for="full">Full Tunnel (Route All Traffic)</label>
+      </div>
+      <div class="input-group checkbox">
+        <input id="obfs" type="checkbox" bind:checked={obfuscate} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
+        <label for="obfs">Stealth Mode (DPI Protection)</label>
       </div>
     </div>
 

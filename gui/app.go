@@ -56,10 +56,11 @@ func (a *App) loadIPCSecret() {
 type UserSettings struct {
 	Server     string `json:"server"`
 	FullTunnel bool   `json:"full_tunnel"`
+	Obfuscate  bool   `json:"obfuscate"`
 }
 
 // SaveConfig persists settings to disk and token to Keyring
-func (a *App) SaveConfig(server, token string, full bool) {
+func (a *App) SaveConfig(server, token string, full, obfs bool) {
 	// 1. Save sensitive token to system Keyring
 	if token != "" {
 		err := keyring.Set(Service, Account, token)
@@ -78,10 +79,10 @@ func (a *App) SaveConfig(server, token string, full bool) {
 	configDir := getConfigDir()
 	os.MkdirAll(configDir, 0755)
 	
-	settings := UserSettings{Server: server, FullTunnel: full}
+	settings := UserSettings{Server: server, FullTunnel: full, Obfuscate: obfs}
 	data, _ := json.Marshal(settings)
 	os.WriteFile(filepath.Join(configDir, "settings.json"), data, 0644)
-	fmt.Printf("[v%s] [GUI] Config (Server: %s, Full: %v) saved to Library\n", GUIVersion, server, full)
+	fmt.Printf("[v%s] [GUI] Config (Server: %s, Full: %v, Obfs: %v) saved to Library\n", GUIVersion, server, full, obfs)
 }
 
 // GetSavedConfig retrieves settings and secure token
@@ -96,6 +97,7 @@ func (a *App) GetSavedConfig() map[string]interface{} {
 		if err := json.Unmarshal(data, &settings); err == nil {
 			res["server"] = settings.Server
 			res["full_tunnel"] = settings.FullTunnel
+			res["obfuscate"] = settings.Obfuscate
 		}
 	}
 
@@ -208,13 +210,14 @@ func (a *App) callHelper(req ipc.Request) (*ipc.Response, error) {
 }
 
 // Connect starts the VPN
-func (a *App) Connect(server, token string, full bool) string {
-	fmt.Printf("[v%s] [GUI] Connect requested for %s\n", GUIVersion, server)
+func (a *App) Connect(server, token string, full, obfs bool) string {
+	fmt.Printf("[v%s] [GUI] Connect requested for %s (Obfs: %v)\n", GUIVersion, server, obfs)
 	_, err := a.callHelper(ipc.Request{
 		Command:    ipc.CmdConnect,
 		ServerAddr: server,
 		Token:      token,
 		FullTunnel: full,
+		Obfuscate:  obfs,
 	})
 	if err != nil {
 		fmt.Printf("[v%s] [GUI] Connect FAILED: %v\n", GUIVersion, err)

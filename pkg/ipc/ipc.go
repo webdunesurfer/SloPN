@@ -16,10 +16,11 @@ const (
 type Request struct {
 	Command    Command `json:"command"`
 	IPCSecret  string  `json:"ipc_secret,omitempty"`
-	ServerAddr string  `json:"server_addr,omitempty"`
-	Token      string  `json:"token,omitempty"`
-	FullTunnel bool    `json:"full_tunnel,omitempty"`
-}
+		ServerAddr string `json:"server_addr,omitempty"`
+		Token      string `json:"token,omitempty"`
+		FullTunnel bool   `json:"full_tunnel,omitempty"`
+		Obfuscate  bool   `json:"obfuscate,omitempty"`
+	}
 
 type Response struct {
 	Status  string      `json:"status"` // "success", "error", "connected", "disconnected"

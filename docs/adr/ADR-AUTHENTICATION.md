@@ -22,6 +22,7 @@ We will use **Token-Based Authentication** over a established QUIC connection.
     *   Easier to manage than mTLS (no need to issue/revoke unique certificates for every client).
     *   Flexible: The "Token" can be a simple string, a JWT, or a database-backed API key.
     *   Decouples transport security (TLS) from identity (Token).
+    *   **Dual Use:** As of Phase 5.7, this Token also seeds the UDP Obfuscation Layer (see [ADR-Obfuscation](ADR-Obfuscation.md)), allowing pre-handshake packet masking.
 *   **Cons:**
     *   Requires a custom application-level handshake after the QUIC handshake.
     *   The server is theoretically exposed to the "Login" message from any client that trusts the server's certificate.
