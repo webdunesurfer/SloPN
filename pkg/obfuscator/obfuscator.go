@@ -3,12 +3,14 @@ package obfuscator
 import (
 	"crypto/sha256"
 	"net"
+	"sync"
 )
 
 // ObfuscatedConn wraps a net.PacketConn and XORs all packets
 type ObfuscatedConn struct {
 	net.PacketConn
 	key []byte
+	pool *sync.Pool
 }
 
 // NewObfuscatedConn creates a new XOR-masked connection
@@ -17,6 +19,12 @@ func NewObfuscatedConn(conn net.PacketConn, secret string) *ObfuscatedConn {
 	return &ObfuscatedConn{
 		PacketConn: conn,
 		key:        h[:],
+		pool: &sync.Pool{
+			New: func() interface{} {
+				// Allocate buffers large enough for MTU + overhead
+				return make([]byte, 2048)
+			},
+		},
 	}
 }
 
@@ -36,13 +44,23 @@ func (c *ObfuscatedConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	return
 }
 
-// WriteTo masks outgoing packets
+// WriteTo masks outgoing packets using a pooled buffer
 func (c *ObfuscatedConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	// We must copy because quic-go might reuse the buffer
-	buf := make([]byte, len(p))
+	// Use pooled buffer to avoid allocation per packet
+	buf := c.pool.Get().([]byte)
+	defer c.pool.Put(buf)
+
+	if len(p) > len(buf) {
+		// Fallback for oversized packets (should not happen with MTU 1200)
+		tmp := make([]byte, len(p))
+		copy(tmp, p)
+		c.xor(tmp)
+		return c.PacketConn.WriteTo(tmp, addr)
+	}
+
 	copy(buf, p)
-	c.xor(buf)
-	return c.PacketConn.WriteTo(buf, addr)
+	c.xor(buf[:len(p)])
+	return c.PacketConn.WriteTo(buf[:len(p)], addr)
 }
 
 // SetReadBuffer satisfies quic-go performance optimizations
@@ -60,4 +78,3 @@ func (c *ObfuscatedConn) SetWriteBuffer(bytes int) error {
 	}
 	return nil
 }
-

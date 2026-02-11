@@ -342,7 +342,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 	tunCfg := tunutil.Config{
 		Name: "slopn-tap0", // Use the name we established
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
-		Mask: "255.255.255.0", MTU: 1280,
+		Mask: "255.255.255.0", MTU: 1200,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {

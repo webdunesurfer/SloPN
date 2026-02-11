@@ -150,7 +150,8 @@ begin
     
     SettingsContent := '{' + #13#10 +
       '  "server": "' + ServerVal + '",' + #13#10 +
-      '  "full_tunnel": true' + #13#10 +
+      '  "full_tunnel": true,' + #13#10 +
+      '  "obfuscate": true' + #13#10 +
       '}';
     SaveStringToFile(SettingsPath + '\settings.json', SettingsContent, False);
     SaveStringToFile(SettingsPath + '\config.json', '{"server":"' + ServerVal + '", "token":"' + TokenVal + '"}', False);

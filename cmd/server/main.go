@@ -147,7 +147,7 @@ func main() {
 		Addr: sm.GetServerIP().String(),
 		Peer: "10.100.0.2",
 		Mask: "255.255.255.0",
-		MTU:  1280,
+		MTU:  1200,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
