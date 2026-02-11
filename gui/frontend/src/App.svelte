@@ -141,13 +141,13 @@
             verifying = false;
             console.log("Tunnel verified successfully in 3s.");
           } else {
-            // Otherwise wait for the final tap at 7s
-            console.log("IP hasn't changed yet, waiting for 7s mark...");
+            // Otherwise wait for the final tap at 6s
+            console.log("IP hasn't changed yet, waiting for 6s mark...");
             setTimeout(async () => {
               await fetchIP(true);
               verifying = false;
-              console.log("Tunnel verification complete at 7s.");
-            }, 4000); 
+              console.log("Tunnel verification complete at 6s.");
+            }, 3000); 
           }
         }, 3000); // Initial 3s wait
       }
