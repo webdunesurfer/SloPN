@@ -28,7 +28,7 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:             "SloPN",
 		Width:             800,
-		Height:            650,
+		Height:            670,
 		DisableResize:     true,
 		HideWindowOnClose: true,
 		AssetServer: &assetserver.Options{
