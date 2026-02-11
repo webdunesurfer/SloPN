@@ -109,6 +109,8 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 }
 
+const ServerVersion = "0.6.1"
+
 // Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
 func logServer(event, vip, remote, details string) {
 	fmt.Printf("%s,%s,%s,%s,%s\n", time.Now().Format(time.RFC3339), event, vip, remote, details)
