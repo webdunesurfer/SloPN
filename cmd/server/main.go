@@ -105,13 +105,13 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 
 	if len(rl.attempts[ip]) >= *maxAttempts {
 		rl.banned[ip] = now.Add(time.Duration(*banMins) * time.Minute)
-		logServer("BAN", "---", ip)
+		logServer("BAN", "---", ip, fmt.Sprintf("Duration: %dm; Attempts: %d", *banMins, len(rl.attempts[ip])))
 	}
 }
 
-// Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR
-func logServer(event, vip, remote string) {
-	fmt.Printf("%s,%s,%s,%s\n", time.Now().Format(time.RFC3339), event, vip, remote)
+// Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
+func logServer(event, vip, remote, details string) {
+	fmt.Printf("%s,%s,%s,%s,%s\n", time.Now().Format(time.RFC3339), event, vip, remote, details)
 }
 
 func main() {
@@ -249,7 +249,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	// Validate Token
 	if loginReq.Token != *token {
 		remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-		logServer("AUTH_FAILURE", "---", remoteIP)
+		logServer("AUTH_FAILURE", "---", remoteIP, "")
 		rl.RecordFailure(remoteIP)
 		resp := protocol.LoginResponse{
 			Type:          protocol.MessageTypeLoginResponse,
@@ -284,13 +284,13 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	json.NewEncoder(stream).Encode(resp)
 
 	sm.AddSession(vip, conn)
-	logServer("CONNECTED", vip.String(), conn.RemoteAddr().String())
+	logServer("CONNECTED", vip.String(), conn.RemoteAddr().String(), "")
 
 	ctx := conn.Context()
 	go func() {
 		defer func() {
 			sm.RemoveSession(vip.String())
-			logServer("DISCONNECTED", vip.String(), conn.RemoteAddr().String())
+			logServer("DISCONNECTED", vip.String(), conn.RemoteAddr().String(), "")
 		}()
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
