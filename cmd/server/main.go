@@ -198,7 +198,7 @@ func main() {
 
 	var finalConn net.PacketConn = udpConn
 	if *obfs {
-		fmt.Println("[SECURITY] Protocol Obfuscation (XOR) enabled.")
+		fmt.Println("Protocol Obfuscation (XOR) enabled.")
 		finalConn = obfuscator.NewObfuscatedConn(udpConn, *token)
 	}
 
