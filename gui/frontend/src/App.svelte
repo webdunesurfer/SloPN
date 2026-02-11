@@ -17,14 +17,26 @@
     'Belgium': 'be', 'Finland': 'fi'
   };
 
-  async function fetchIP() {
-    if (loadingIP) return; // Prevent multiple concurrent requests
+  let lastKnownIP = "";
+
+  async function fetchIP(retryIfSame = false, attempt = 1) {
+    if (loadingIP && attempt === 1) return;
     loadingIP = true;
     try {
       const info = await GetPublicIPInfo();
       if (info) {
+        const newIP = info.query || info.Query || '---';
+        
+        // If we are connecting/disconnecting and IP hasn't changed yet, retry
+        if (retryIfSame && newIP === lastKnownIP && attempt < 5) {
+          console.log(`IP hasn't changed yet (${newIP}). Retrying attempt ${attempt + 1}...`);
+          setTimeout(() => fetchIP(true, attempt + 1), 3000);
+          return;
+        }
+
+        lastKnownIP = newIP;
         ipInfo = {
-          query: info.query || info.Query || '---',
+          query: newIP,
           city: info.city || info.City || '---',
           country: info.country || info.Country || '---',
           countryCode: info.countryCode || info.CountryCode || '',
@@ -122,7 +134,8 @@
       status = data;
       // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
-        setTimeout(fetchIP, 10000); // 10 second pre-wait
+        // Wait for change
+        fetchIP(true);
       }
     });
 
