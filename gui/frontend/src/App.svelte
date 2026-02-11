@@ -106,11 +106,8 @@
       status = { state: 'disconnected', helper_version: '---', server_version: '---' };
     }
 
-    // Initial IP fetch
+    // Initial IP fetch on start
     fetchIP();
-
-    // Auto-refresh every 30 seconds
-    const ipInterval = setInterval(fetchIP, 30000);
 
     // Listen for helper presence
     EventsOn("helper_status", (state) => {
@@ -130,13 +127,13 @@
       // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
         verifying = true;
-        // Double-tap strategy to catch routing updates
+        // Faster double-tap strategy (Total 7s)
         setTimeout(async () => {
           await fetchIP(true); // First check after 3s
           setTimeout(async () => {
-            await fetchIP(true); // Final check after 15s total
-            verifying = false;
-          }, 12000); 
+            await fetchIP(true); // Final check after 4s (total 7s)
+            verifying = false;   // End verification state
+          }, 4000); 
         }, 3000);
       }
     });
@@ -161,10 +158,6 @@
     EventsOn("vpn_logs", (data) => {
       logs = data;
     });
-
-    return () => {
-      clearInterval(ipInterval);
-    };
   });
 
   async function handleToggle() {
