@@ -10,6 +10,7 @@
 
   let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
   let loadingIP = false;
+  let verifying = false;
 
   const countryFlags = {
     'Austria': 'at', 'France': 'fr', 'Germany': 'de', 'United States': 'us',
@@ -17,26 +18,17 @@
     'Belgium': 'be', 'Finland': 'fi'
   };
 
-  let lastKnownIP = "";
-
-  async function fetchIP(retryIfSame = false, attempt = 1) {
-    if (loadingIP && attempt === 1) return;
+  async function fetchIP(isAutomated = false) {
+    if (loadingIP && !isAutomated) return;
+    
     loadingIP = true;
+    if (isAutomated) verifying = true;
+
     try {
       const info = await GetPublicIPInfo();
       if (info) {
-        const newIP = info.query || info.Query || '---';
-        
-        // If we are connecting/disconnecting and IP hasn't changed yet, retry
-        if (retryIfSame && newIP === lastKnownIP && attempt < 5) {
-          console.log(`IP hasn't changed yet (${newIP}). Retrying attempt ${attempt + 1}...`);
-          setTimeout(() => fetchIP(true, attempt + 1), 3000);
-          return;
-        }
-
-        lastKnownIP = newIP;
         ipInfo = {
-          query: newIP,
+          query: info.query || info.Query || '---',
           city: info.city || info.City || '---',
           country: info.country || info.Country || '---',
           countryCode: info.countryCode || info.CountryCode || '',
@@ -117,6 +109,9 @@
     // Initial IP fetch
     fetchIP();
 
+    // Auto-refresh every 30 seconds
+    const ipInterval = setInterval(fetchIP, 30000);
+
     // Listen for helper presence
     EventsOn("helper_status", (state) => {
       if (state === "missing") {
@@ -134,9 +129,15 @@
       status = data;
       // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
+        verifying = true;
         // Double-tap strategy to catch routing updates
-        setTimeout(fetchIP, 2000);  // Quick check
-        setTimeout(fetchIP, 15000); // Final check after routes settle
+        setTimeout(async () => {
+          await fetchIP(true); // First check after 3s
+          setTimeout(async () => {
+            await fetchIP(true); // Final check after 15s total
+            verifying = false;
+          }, 12000); 
+        }, 3000);
       }
     });
 
@@ -160,6 +161,10 @@
     EventsOn("vpn_logs", (data) => {
       logs = data;
     });
+
+    return () => {
+      clearInterval(ipInterval);
+    };
   });
 
   async function handleToggle() {
@@ -217,7 +222,9 @@
 
     <div class="card ip-card">
       <div class="ip-row">
-        {#if loadingIP}
+        {#if verifying}
+          <span class="value loading">VERIFYING TUNNEL...</span>
+        {:else if loadingIP}
           <span class="value loading">FETCHING IP INFO...</span>
         {:else}
           {#if ipInfo.countryCode && ipInfo.countryCode !== '---'}
@@ -231,8 +238,8 @@
           <span class="label">LOCATION:</span>
           <span class="value">{ipInfo.city}, {ipInfo.country}</span>
         {/if}
-        <button class="refresh-btn" on:click={fetchIP} disabled={loadingIP} title="Refresh IP Info">
-          <svg viewBox="0 0 24 24" class={loadingIP ? 'spinning' : ''}>
+        <button class="refresh-btn" on:click={() => fetchIP(false)} disabled={loadingIP || verifying} title="Refresh IP Info">
+          <svg viewBox="0 0 24 24" class={(loadingIP || verifying) ? 'spinning' : ''}>
             <path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" />
           </svg>
         </button>
