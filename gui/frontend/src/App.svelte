@@ -564,17 +564,17 @@
   .input-group.checkbox-row {
     grid-column: span 2;
     display: flex;
-    gap: 10px;
+    gap: 15px;
     align-items: center;
     margin-top: 5px;
-    justify-content: flex-start;
+    justify-content: space-between;
   }
 
   .checkbox-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 0;
+    white-space: nowrap;
   }
 
   .input-group label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 2px; }
