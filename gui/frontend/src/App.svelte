@@ -120,11 +120,9 @@
     EventsOn("vpn_status", (data) => {
       const oldState = status.state;
       status = data;
-      // Re-fetch IP if state changed to/from connected with a delay
+      // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
-        setTimeout(() => {
-          fetchIP();
-        }, 10000); // 10 second delay for routes to settle
+        setTimeout(fetchIP, 10000); // 10 second pre-wait
       }
     });
 
