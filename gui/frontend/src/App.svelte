@@ -318,13 +318,15 @@
         <label for="token">Auth Token</label>
         <input id="token" type="password" bind:value={token} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
-      <div class="input-group checkbox">
-        <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
-        <label for="full">Full Tunnel (Route All Traffic)</label>
-      </div>
-      <div class="input-group checkbox">
-        <input id="obfs" type="checkbox" bind:checked={obfuscate} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
-        <label for="obfs">Stealth Mode (DPI Protection)</label>
+      <div class="input-group checkbox-row">
+        <div class="checkbox-item">
+          <input id="full" type="checkbox" bind:checked={fullTunnel} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
+          <label for="full">Full Tunnel</label>
+        </div>
+        <div class="checkbox-item">
+          <input id="obfs" type="checkbox" bind:checked={obfuscate} on:change={handleConfigChange} disabled={status.state !== 'disconnected'} />
+          <label for="obfs">Stealth Mode (DPI Protection)</label>
+        </div>
       </div>
     </div>
 
@@ -549,8 +551,15 @@
     padding: 12px;
   }
 
-  .input-group.checkbox {
+  .input-group.checkbox-row {
     grid-column: span 2;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 5px;
+  }
+
+  .checkbox-item {
     display: flex;
     align-items: center;
     gap: 8px;
