@@ -93,7 +93,7 @@
       server = initConfig.server || "";
       token = initConfig.token || "";
       fullTunnel = true;
-      obfuscate = initConfig.obfuscate !== undefined ? initConfig.obfuscate : true;
+      obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true";
 
       // Save to user settings immediately so it's consistent
       handleConfigChange();
@@ -103,7 +103,7 @@
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
-      obfuscate = initConfig.obfuscate !== undefined ? initConfig.obfuscate : (saved.obfuscate !== undefined ? saved.obfuscate : true);
+      obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true" || (saved.obfuscate !== undefined ? saved.obfuscate : true);
       handleConfigChange();
     } else {
       // Normal load from existing user settings
@@ -564,16 +564,17 @@
   .input-group.checkbox-row {
     grid-column: span 2;
     display: flex;
-    gap: 15px;
+    gap: 10px;
     align-items: center;
     margin-top: 5px;
+    justify-content: flex-start;
   }
 
   .checkbox-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    white-space: nowrap;
+    min-width: 0;
   }
 
   .input-group label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 2px; }

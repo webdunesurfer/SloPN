@@ -66,7 +66,7 @@ export namespace main {
 	export class InitialConfig {
 	    server: string;
 	    token: string;
-	    obfuscate: boolean;
+	    obfuscate: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new InitialConfig(source);
