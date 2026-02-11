@@ -64,6 +64,14 @@ Filename: "{app}\driver\tapinstall.exe"; Parameters: "remove tap0901"; Flags: ru
 var
   ConfigPage: TInputQueryWizardPage;
 
+function IsVCRedistInstalled: Boolean;
+var
+  Installed: Cardinal;
+begin
+  // Check for Visual C++ 2015-2022 Redistributable (x64)
+  Result := RegQueryDWordValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1);
+end;
+
 procedure StopSloPNProcesses();
 var
   ResultCode: Integer;
@@ -84,6 +92,39 @@ begin
   
   ConfigPage.Values[0] := '';
   ConfigPage.Values[1] := '';
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  VCRedistURL: String;
+  VCRedistPath: String;
+begin
+  if not IsVCRedistInstalled then
+  begin
+    if MsgBox('SloPN requires Microsoft Visual C++ Redistributable to run correctly. Would you like to download and install it now?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      VCRedistURL := 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
+      VCRedistPath := ExpandConstant('{tmp}\vc_redist.x64.exe');
+      
+      // Note: Inno Setup 6 doesn't have a built-in 'DownloadFile' Pascal function that works reliably without a plugin (IDP).
+      // However, we can use PowerShell to download it.
+      ExtractTemporaryFile('tapinstall.exe'); // Just a placeholder to ensure {tmp} exists
+      
+      StatusLabel.Caption := 'Downloading Visual C++ Redistributable...';
+      if Exec('powershell.exe', '-ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri ''' + VCRedistURL + ''' -OutFile ''' + VCRedistPath + '''"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+      begin
+        StatusLabel.Caption := 'Installing Visual C++ Redistributable...';
+        if Exec(VCRedistPath, '/quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+        begin
+          // Success
+        end else
+          MsgBox('Installation of Visual C++ Redistributable failed. You may need to install it manually.', mbError, MB_OK);
+      end else
+        MsgBox('Download of Visual C++ Redistributable failed. Please check your internet connection.', mbError, MB_OK);
+    end;
+  end;
+  Result := '';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
