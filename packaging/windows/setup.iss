@@ -23,6 +23,8 @@ WizardStyle=modern
 PrivilegesRequired=admin
 CloseApplications=force
 RestartApplications=yes
+ChangesEnvironment=yes
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
