@@ -554,7 +554,7 @@
   .input-group.checkbox-row {
     grid-column: span 2;
     display: flex;
-    gap: 20px;
+    gap: 15px;
     align-items: center;
     margin-top: 5px;
   }
@@ -562,7 +562,8 @@
   .checkbox-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    white-space: nowrap;
   }
 
   .input-group label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 2px; }
