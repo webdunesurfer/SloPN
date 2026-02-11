@@ -50,7 +50,7 @@ var (
 	port      = flag.Int("port", 4242, "UDP Port to listen on")
 	token     = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
-	obfs      = flag.Bool("obfs", false, "Enable protocol obfuscation (XOR)")
+	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (XOR)")
 
 	// Rate Limiting Config
 	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
@@ -111,7 +111,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 }
 
-const ServerVersion = "0.6.4"
+const ServerVersion = "0.7.1"
 
 // Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
 func logServer(event, vip, remote, details string) {

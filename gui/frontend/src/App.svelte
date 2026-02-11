@@ -6,8 +6,8 @@
   let server = "";
   let token = "";
   let fullTunnel = true;
-  let obfuscate = false;
-  let guiVersion = "0.6.4";
+  let obfuscate = true;
+  let guiVersion = "0.7.1";
 
   let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
   let loadingIP = false;
@@ -92,7 +92,7 @@
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
-      obfuscate = saved.obfuscate !== undefined ? saved.obfuscate : false;
+      obfuscate = saved.obfuscate !== undefined ? saved.obfuscate : true;
 
       // Save to user settings immediately so it's consistent
       handleConfigChange();
