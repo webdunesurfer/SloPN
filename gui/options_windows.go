@@ -8,7 +8,7 @@ import (
 
 func getWindowsOptions() *windows.Options {
 	return &windows.Options{
-		WebviewUserDataFolder:     "SloPN",         // Store cache/data in SloPN subfolder
-		WebviewBrowserCommandLine: "--disable-gpu", // Best compatibility for old Windows 10
+		WebviewUserDataPath:  "SloPN", // Correct field name for data folder
+		WebviewGpuIsDisabled: true,    // Correct field name to disable GPU
 	}
 }
