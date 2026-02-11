@@ -105,11 +105,14 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 
 	if len(rl.attempts[ip]) >= *maxAttempts {
 		rl.banned[ip] = now.Add(time.Duration(*banMins) * time.Minute)
-		fmt.Printf("[SECURITY] IP %s BANNED for %d minutes due to too many failed attempts.\n", ip, *banMins)
+		logServer("BAN", "---", ip)
 	}
 }
 
-const ServerVersion = "0.6.1"
+// Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR
+func logServer(event, vip, remote string) {
+	fmt.Printf("%s,%s,%s,%s\n", time.Now().Format(time.RFC3339), event, vip, remote)
+}
 
 func main() {
 	flag.Parse()
@@ -246,7 +249,7 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	// Validate Token
 	if loginReq.Token != *token {
 		remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-		fmt.Printf("[AUTH_FAILURE] %s: invalid token\n", remoteIP)
+		logServer("AUTH_FAILURE", "---", remoteIP)
 		rl.RecordFailure(remoteIP)
 		resp := protocol.LoginResponse{
 			Type:          protocol.MessageTypeLoginResponse,
@@ -281,13 +284,13 @@ func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manage
 	json.NewEncoder(stream).Encode(resp)
 
 	sm.AddSession(vip, conn)
-	fmt.Printf("Client connected: %s (from %s)\n", vip, conn.RemoteAddr())
+	logServer("CONNECTED", vip.String(), conn.RemoteAddr().String())
 
 	ctx := conn.Context()
 	go func() {
 		defer func() {
 			sm.RemoveSession(vip.String())
-			fmt.Printf("Client disconnected: %s (from %s)\n", vip, conn.RemoteAddr())
+			logServer("DISCONNECTED", vip.String(), conn.RemoteAddr().String())
 		}()
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
