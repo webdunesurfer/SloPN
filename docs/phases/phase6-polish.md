@@ -33,8 +33,10 @@ Use kernel-level features to verify the User Identity of the calling process.
 *   **System Tray Unification:** Refactor platform-specific tray implementations to use a unified library (e.g., `getlantern/systray`) for better maintainability.
 
 ## 3. Connectivity & Performance
+*   **Dynamic MTU Discovery (Priority):** Implement PLPMTUD (Packetization Layer Path MTU Discovery) to automatically find the optimal MTU for the tunnel.
+    *   *Current:* Hardcoded to 1200 bytes (Safe but slow).
+    *   *Goal:* Dynamically probe up to 1400+ bytes to maximize throughput without fragmentation.
 *   **Interface Awareness:** Auto-reconnect when switching networks (Wi-Fi <-> Ethernet).
-*   **Performance Tuning:** Path MTU (PMTU) discovery and batch packet processing.
 *   **Auto-Reconnection:** Exponential backoff strategy for network drops.
 
 ## 4. Cross-Platform Support
