@@ -19,8 +19,8 @@ const (
 )
 
 type Config struct {
-	Server    string `json:"server"`
-	Token     string `json:"token"`
+	Server    string      `json:"server"`
+	Token     string      `json:"token"`
 	Obfuscate interface{} `json:"obfuscate"`
 }
 
@@ -59,8 +59,7 @@ func printUsage() {
 	fmt.Println("  slopn disconnect        Disconnect VPN")
 	fmt.Println("  slopn status            Show connection status")
 	fmt.Println("  slopn logs              Show helper logs")
-	fmt.Println("
-Connect Flags:")
+	fmt.Println("\nConnect Flags:")
 	fmt.Println("  -server <addr>  Override server address")
 	fmt.Println("  -token <token>  Override auth token")
 	fmt.Println("  -full           Enable full tunnel (default true)")
@@ -114,8 +113,7 @@ func sendRequest(req ipc.Request) (*ipc.Response, error) {
 func sendSimpleCommand(cmd ipc.Command) {
 	resp, err := sendRequest(ipc.Request{Command: cmd})
 	if err != nil {
-		fmt.Printf("Error: %v
-", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(resp.Message)
@@ -149,8 +147,7 @@ func doConnect(srv, tok string, full, obfs bool) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Connecting to %s (Full: %v, Obfs: %v)...
-", srv, full, obfs)
+	fmt.Printf("Connecting to %s (Full: %v, Obfs: %v)...\n", srv, full, obfs)
 	resp, err := sendRequest(ipc.Request{
 		Command:    ipc.CmdConnect,
 		ServerAddr: srv,
@@ -159,8 +156,7 @@ func doConnect(srv, tok string, full, obfs bool) {
 		Obfuscate:  obfs,
 	})
 	if err != nil {
-		fmt.Printf("Connection Failed: %v
-", err)
+		fmt.Printf("Connection Failed: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(resp.Message)
@@ -169,8 +165,7 @@ func doConnect(srv, tok string, full, obfs bool) {
 func doStatus() {
 	resp, err := sendRequest(ipc.Request{Command: ipc.CmdGetStatus})
 	if err != nil {
-		fmt.Printf("Error: %v
-", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	
@@ -182,8 +177,7 @@ func doStatus() {
 func doLogs() {
 	resp, err := sendRequest(ipc.Request{Command: ipc.CmdGetLogs})
 	if err != nil {
-		fmt.Printf("Error: %v
-", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(resp.Message)
