@@ -23,6 +23,15 @@ For detailed information on various aspects of the project, please refer to the 
 
 ---
 
+## 🛡️ Stealth Mode (Obfuscation)
+
+SloPN includes a built-in **Protocol Obfuscation** layer designed to bypass Deep Packet Inspection (DPI) systems that block standard VPN protocols.
+
+*   **How it works:** Wraps the entire QUIC packet in an XOR-scrambled shell derived from your authentication token. This removes identifiable headers and makes the traffic look like high-entropy random UDP noise.
+*   **Enable/Disable:**
+    *   **Server:** Enabled by default. Use `-obfs=false` to disable.
+    *   **Client:** Check the "Stealth Mode (DPI Protection)" box in the GUI settings (Enabled by default).
+
 ## 🚀 Quick Start
 
 ### ⊞ Windows
