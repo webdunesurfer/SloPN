@@ -26,13 +26,13 @@ For detailed information on various aspects of the project, please refer to the 
 ## 🚀 Quick Start
 
 ### ⊞ Windows
-1. Download `SloPN-Setup.exe` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
+1. Download `SLoPn-Win10+11-Setup.exe` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
 2. Run the installer (requires Administrator privileges for driver and service setup).
 3. Enter your Server Address and Token during the installation wizard.
 4. Launch **SloPN** from your desktop or Start menu.
 
 ###  macOS
-1. Download `SloPN-Installer.pkg` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
+1. Download `SLoPN-MAC-Installer.pkg` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
 2. Run the installer (requires administrator privileges).
 3. Open **SloPN** from your Applications folder.
 
