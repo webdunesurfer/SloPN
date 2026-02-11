@@ -144,8 +144,9 @@ func (a *App) CheckNewInstall() bool {
 }
 
 type InitialConfig struct {
-	Server string `json:"server"`
-	Token  string `json:"token"`
+	Server    string `json:"server"`
+	Token     string `json:"token"`
+	Obfuscate bool   `json:"obfuscate"`
 }
 
 // GetInitialConfig reads the config file created by the installer

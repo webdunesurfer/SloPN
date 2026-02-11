@@ -92,7 +92,7 @@
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
-      obfuscate = saved.obfuscate !== undefined ? saved.obfuscate : true;
+      obfuscate = initConfig.obfuscate !== undefined ? initConfig.obfuscate : (saved.obfuscate !== undefined ? saved.obfuscate : true);
 
       // Save to user settings immediately so it's consistent
       handleConfigChange();

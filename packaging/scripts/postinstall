@@ -19,7 +19,7 @@ USER_TOKEN=$(osascript -e 'display dialog "Enter SloPN Auth Token:" default answ
 # Store these in a system-wide config if helper supports it, or just pass to GUI via a shared file
 # For now, we will create a global config file that both Helper and GUI can read.
 mkdir -p /Library/Application\ Support/SloPN
-echo "{\"server\":\"$USER_SERVER\", \"token\":\"$USER_TOKEN\"}" > "/Library/Application Support/SloPN/config.json"
+echo "{\"server\":\"$USER_SERVER\", \"token\":\"$USER_TOKEN\", \"obfuscate\":true}" > "/Library/Application Support/SloPN/config.json"
 chmod 644 "/Library/Application Support/SloPN/config.json"
 
 # Create marker for GUI to know it's a fresh install/reconfig
