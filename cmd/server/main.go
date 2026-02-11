@@ -129,11 +129,16 @@ func main() {
 	rl := NewRateLimiter()
 
 	if runtime.GOOS == "linux" {
+		// Only attempt deletion if it exists to avoid noisy 255 exits
+		if _, err := net.InterfaceByName("tun0"); err == nil {
+			fmt.Println("Cleaning up existing tun0 interface...")
+			exec.Command("ip", "tuntap", "del", "mode", "tun", "name", "tun0").Run()
+		}
+		
 		fmt.Println("Pre-creating TUN interface with nopi...")
-		exec.Command("ip", "tuntap", "del", "mode", "tun", "name", "tun0").Run()
 		err := exec.Command("ip", "tuntap", "add", "mode", "tun", "name", "tun0", "nopi").Run()
 		if err != nil {
-			fmt.Printf("Warning: failed to pre-create tun0: %v\n", err)
+			fmt.Printf("Note: tun0 pre-creation skipped or failed: %v (falling back to automatic)\n", err)
 		}
 	}
 

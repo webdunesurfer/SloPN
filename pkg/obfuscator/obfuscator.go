@@ -44,3 +44,20 @@ func (c *ObfuscatedConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	c.xor(buf)
 	return c.PacketConn.WriteTo(buf, addr)
 }
+
+// SetReadBuffer satisfies quic-go performance optimizations
+func (c *ObfuscatedConn) SetReadBuffer(bytes int) error {
+	if u, ok := c.PacketConn.(interface{ SetReadBuffer(int) error }); ok {
+		return u.SetReadBuffer(bytes)
+	}
+	return nil
+}
+
+// SetWriteBuffer satisfies quic-go performance optimizations
+func (c *ObfuscatedConn) SetWriteBuffer(bytes int) error {
+	if u, ok := c.PacketConn.(interface{ SetWriteBuffer(int) error }); ok {
+		return u.SetWriteBuffer(bytes)
+	}
+	return nil
+}
+
