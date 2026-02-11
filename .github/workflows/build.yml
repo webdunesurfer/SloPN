@@ -126,13 +126,13 @@ jobs:
 
       - name: Create Final Distribution Package
         run: |
-          productbuild --package bin/SloPN-Component.pkg bin/SloPN-Installer.pkg
+          productbuild --package bin/SloPN-Component.pkg bin/SLoPN-MAC-Installer.pkg
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SloPN-MacOS-Installer
-          path: bin/SloPN-Installer.pkg
+          path: bin/SLoPN-MAC-Installer.pkg
 
   build-windows:
     name: Build Windows Client
@@ -174,6 +174,8 @@ jobs:
         shell: pwsh
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/windows/setup.iss
+          # Rename for release
+          move bin/SloPN-Setup.exe bin/SLoPn-Win10+11-Setup.exe
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -200,9 +202,7 @@ jobs:
         with:
           files: |
             server-linux/server_linux
-            SloPN-MacOS-Installer/SloPN-Installer.pkg
-            windows-client/SloPN.exe
-            windows-client/slopn-helper.exe
-            windows-client/SloPN-Setup.exe
+            SloPN-MacOS-Installer/SLoPN-MAC-Installer.pkg
+            windows-client/SLoPn-Win10+11-Setup.exe
           draft: true
           generate_release_notes: true
