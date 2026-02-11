@@ -5,26 +5,29 @@
 ## 1. Backend Implementation (Go)
 *   **Service:** Use `http://ip-api.com/json` for lightweight, no-key-required geolocation.
 *   **Method:** Add `GetPublicIPInfo()` to the `App` struct in `gui/app.go`.
+*   **Hardening:** Uses `DisableKeepAlives: true` to force fresh TCP handshakes, ensuring requests respect new OS routes immediately after connection.
 *   **Data Structure:**
     ```go
     type IPInfo struct {
-        Query   string `json:"query"`   // IP
-        City    string `json:"city"`
-        Country string `json:"country"`
-        ISP     string `json:"isp"`
+        Query       string `json:"query"`
+        City        string `json:"city"`
+        Country     string `json:"country"`
+        CountryCode string `json:"countryCode"`
+        ISP         string `json:"isp"`
     }
     ```
 
 ## 2. Frontend Implementation (Svelte)
-*   **Display:** Add a dedicated section in the `Status` card to show the IP and Location.
+*   **Display:** A dedicated card below the Status section with a single-line layout.
 *   **Trigger:** 
-    *   Fetch IP info on application startup.
-    *   Automatically re-fetch immediately after the state changes to `connected`.
-    *   Automatically re-fetch immediately after the state changes to `disconnected`.
-*   **Visual Polish:** Use Emojis for country flags (e.g., 🇫🇷, 🇩🇪) based on the returned country data.
+    *   Initial fetch on application startup.
+    *   **Double-Tap Strategy:** On Connection/Disconnection, the UI shows "VERIFYING TUNNEL..." and performs two fetches: at 3 seconds and 7 seconds.
+*   **Manual Refresh:** A dedicated refresh icon with "FETCHING IP INFO..." state.
+*   **Visual Polish:** Uses reliable SVG flags via `flagsapi.com` to avoid Windows emoji limitations.
 
 ## 3. Success Criteria
-*   [ ] User sees their original ISP IP before connecting.
-*   [ ] User sees the VPN Server IP and its location immediately after connecting.
-*   [ ] The information is updated without manual refresh.
-*   [ ] Failure to reach the IP API does not crash the GUI.
+*   [x] User sees their original ISP IP before connecting.
+*   [x] User sees the VPN Server IP and its location reliably after routes settle (~7s).
+*   [x] The information is updated automatically after state changes.
+*   [x] Failure to reach the IP API does not crash the GUI.
+*   [x] Windows-native flag display works correctly.
