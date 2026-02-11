@@ -23,5 +23,5 @@ services:
     container_name: slopn-dns
     restart: unless-stopped
     volumes:
-      - ./coredns.conf:/etc/coredns/Corefile
+      - ./coredns.conf:/etc/coredns/Corefile:Z
     command: -conf /etc/coredns/Corefile

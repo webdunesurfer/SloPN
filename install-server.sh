@@ -62,6 +62,8 @@ docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN -
 # C) Start CoreDNS
 docker stop slopn-dns &>/dev/null || true
 docker rm slopn-dns &>/dev/null || true
+# Ensure config is readable by container user
+chmod 644 coredns.conf
 # Run in standard bridge mode, map port 53 to host (it won't conflict because we'll bind to the Docker Bridge IP)
 DOCKER_BRIDGE_IP=$(ip addr show docker0 | grep "inet " | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
 docker run -d --name slopn-dns --restart unless-stopped -p $DOCKER_BRIDGE_IP:53:53/udp -p $DOCKER_BRIDGE_IP:53:53/tcp -v $(pwd)/coredns.conf:/etc/coredns/Corefile coredns/coredns:latest -conf /etc/coredns/Corefile
