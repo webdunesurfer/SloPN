@@ -6,7 +6,7 @@
   let server = "";
   let token = "";
   let fullTunnel = true;
-  let guiVersion = "0.6.2";
+  let guiVersion = "0.6.3";
 
   let ipInfo = { query: '---', city: '---', country: '---', isp: '---' };
   let loadingIP = false;
