@@ -19,7 +19,7 @@
   };
 
   async function fetchIP(isAutomated = false) {
-    if (loadingIP && !isAutomated) return;
+    if (loadingIP && !isAutomated) return '---';
     
     loadingIP = true;
     if (isAutomated) verifying = true;
@@ -34,12 +34,14 @@
           countryCode: info.countryCode || info.CountryCode || '',
           isp: info.isp || info.ISP || '---'
         };
+        return ipInfo.query;
       }
     } catch (e) {
       console.error("IP check failed:", e);
     } finally {
       loadingIP = false;
     }
+    return '---';
   }
 
   function handleConfigChange() {
@@ -124,17 +126,30 @@
     EventsOn("vpn_status", (data) => {
       const oldState = status.state;
       status = data;
+      
       // Re-fetch IP if state changed to/from connected
       if (oldState !== data.state && (data.state === 'connected' || data.state === 'disconnected')) {
+        const lastIP = ipInfo.query;
         verifying = true;
-        // Faster double-tap strategy (Total 7s)
+        
+        // Smart Double-Tap Strategy
         setTimeout(async () => {
-          await fetchIP(true); // First check after 3s
-          setTimeout(async () => {
-            await fetchIP(true); // Final check after 4s (total 7s)
-            verifying = false;   // End verification state
-          }, 4000); 
-        }, 3000);
+          const newIP = await fetchIP(true);
+          
+          // If IP already changed, we are done!
+          if (newIP !== lastIP && newIP !== '---') {
+            verifying = false;
+            console.log("Tunnel verified successfully in 3s.");
+          } else {
+            // Otherwise wait for the final tap at 7s
+            console.log("IP hasn't changed yet, waiting for 7s mark...");
+            setTimeout(async () => {
+              await fetchIP(true);
+              verifying = false;
+              console.log("Tunnel verification complete at 7s.");
+            }, 4000); 
+          }
+        }, 3000); // Initial 3s wait
       }
     });
 
@@ -158,6 +173,10 @@
     EventsOn("vpn_logs", (data) => {
       logs = data;
     });
+
+    return () => {
+      // Cleanup logic if needed
+    };
   });
 
   async function handleToggle() {
