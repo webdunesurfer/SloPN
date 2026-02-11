@@ -1,6 +1,6 @@
 # SloPN: QUIC-based Layer 3 VPN
 
-SloPN (Slow Private Network) is a modular, high-security VPN built with Go and QUIC. It utilizes RFC 9221 Datagrams to provide a robust tunneling experience that avoids the "TCP-over-TCP" meltdown common in older VPN protocols.
+SloPN (Slow Private Network) is a modular, high-security VPN built with Go and QUIC. It utilizes RFC 9221 Datagrams to provide a robust tunneling experience that avoids the "TCP-over-TCP" meltdown common in older VPN protocols, while its integrated **Stealth Mode** provides protocol obfuscation to remain invisible to Deep Packet Inspection (DPI) systems.
 
 ## 📖 Documentation Hub
 
