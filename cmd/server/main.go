@@ -58,6 +58,8 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
+const ServerVersion = "0.7.1"
+
 type RateLimiter struct {
 	mu       sync.Mutex
 	attempts map[string][]time.Time // IP -> List of failure timestamps
@@ -110,8 +112,6 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 		logServer("BAN", "---", ip, fmt.Sprintf("Duration: %dm; Attempts: %d", *banMins, len(rl.attempts[ip])))
 	}
 }
-
-const ServerVersion = "0.7.1"
 
 // Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
 func logServer(event, vip, remote, details string) {
