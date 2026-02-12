@@ -54,7 +54,14 @@ loop:
 }
 
 func main() {
-	h := &Helper{state: "disconnected"}
+	verbose := false
+	for _, arg := range os.Args {
+		if arg == "--verbose" || arg == "-v" {
+			verbose = true
+		}
+	}
+
+	h := &Helper{state: "disconnected", verbose: verbose}
 
 	// Check if we are running as a service
 	isInt, err := svc.IsAnInteractiveSession()

@@ -1,4 +1,4 @@
-#define MyAppName "SloPN"
+#define MyAppName "SloPN (Debug)"
 #define MyAppVersion "0.7.4"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
@@ -13,10 +13,10 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={autopf}\SloPN
 DisableProgramGroupPage=yes
 OutputDir=..\..\bin
-OutputBaseFilename=SloPN-Setup
+OutputBaseFilename=SloPN-Setup-Debug
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -52,8 +52,11 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
 [Run]
 ; Install TAP Driver
 Filename: "{app}\driver\tapinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
+[Run]
+; Install TAP Driver
+Filename: "{app}\driver\tapinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
 ; Create/Update Helper Service
-Filename: "{sys}\sc.exe"; Parameters: "create SloPNHelper binPath= ""{app}\{#MyHelperExeName}"" start= auto displayname= ""SloPN Privileged Helper"""; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "create SloPNHelper binPath= ""{app}\{#MyHelperExeName}"" start= auto displayname= ""SloPN Privileged Helper (Debug)"""; Flags: runhidden
 ; Ensure binPath is updated if it changed
 Filename: "{sys}\sc.exe"; Parameters: "config SloPNHelper binPath= ""{app}\{#MyHelperExeName}"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start SloPNHelper"; Flags: runhidden
@@ -167,6 +170,9 @@ begin
     
     // Ensure ProgramData directory exists for logs/secrets
     ForceDirectories(ExpandConstant('{commonappdata}') + '\SloPN');
+
+    // CREATE VERBOSE FLAG FOR DEBUG BUILD
+    SaveStringToFile(ExpandConstant('{commonappdata}') + '\SloPN\verbose.flag', 'enabled', False);
 
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);

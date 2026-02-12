@@ -44,7 +44,9 @@ func (h *Helper) setupDNS(ifceName string) {
 	logHelper(fmt.Sprintf("[DNS] Configuring DNS for VPN interface %s...", ifceName))
 	
 	// 1. Force DNS on the VPN interface itself
-	exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", ifceName), "static", "10.100.0.1", "validate=no").Run()
+	if err := exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", ifceName), "static", "10.100.0.1", "validate=no").Run(); err != nil {
+		logHelper(fmt.Sprintf("[DNS] Error setting VPN DNS: %v", err))
+	}
 
 	// 2. Aggressive Leak Protection: Force DNS on ALL other active interfaces to 10.100.0.1
 	// This prevents Windows from using the ISP DNS via parallel queries.
@@ -54,7 +56,9 @@ func (h *Helper) setupDNS(ifceName string) {
 			continue
 		}
 		logHelper(fmt.Sprintf("[DNS] Forcing protection on %s...", name))
-		exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", name), "static", "10.100.0.1", "validate=no").Run()
+		if err := exec.Command("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", name), "static", "10.100.0.1", "validate=no").Run(); err != nil {
+			logHelper(fmt.Sprintf("[DNS] Error forcing protection on %s: %v", name, err))
+		}
 	}
 	
 	exec.Command("ipconfig", "/flushdns").Run()
@@ -140,7 +144,9 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP, ifceName string)
 
 	if !full {
 		logHelper(fmt.Sprintf("[VPN] Adding split-tunnel route for 10.100.0.0/24 via %s (IF %s)", serverVIP, ifIndex))
-		exec.Command("route", "add", "10.100.0.0", "mask", "255.255.255.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
+		if err := exec.Command("route", "add", "10.100.0.0", "mask", "255.255.255.0", serverVIP, "IF", ifIndex, "metric", "1").Run(); err != nil {
+			logHelper(fmt.Sprintf("[VPN] Error adding split-tunnel route: %v", err))
+		}
 		return
 	}
 	
@@ -149,12 +155,18 @@ func (h *Helper) setupRouting(full bool, serverHost, serverVIP, ifceName string)
 	gwIP := getGatewayIP()
 	if gwIP != "" {
 		logHelper(fmt.Sprintf("[VPN] Pinning server route via %s", gwIP))
-		exec.Command("route", "add", serverHost, "mask", "255.255.255.255", gwIP, "metric", "1").Run()
+		if err := exec.Command("route", "add", serverHost, "mask", "255.255.255.255", gwIP, "metric", "1").Run(); err != nil {
+			logHelper(fmt.Sprintf("[VPN] Error pinning server route: %v", err))
+		}
 	}
 
 	logHelper("[VPN] Redirecting all traffic through TUN...")
-	exec.Command("route", "add", "0.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
-	exec.Command("route", "add", "128.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run()
+	if err := exec.Command("route", "add", "0.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run(); err != nil {
+		logHelper(fmt.Sprintf("[VPN] Error adding route 0.0.0.0/1: %v", err))
+	}
+	if err := exec.Command("route", "add", "128.0.0.0", "mask", "128.0.0.0", serverVIP, "IF", ifIndex, "metric", "1").Run(); err != nil {
+		logHelper(fmt.Sprintf("[VPN] Error adding route 128.0.0.0/1: %v", err))
+	}
 	
 	h.setupDNS(ifceName)
 }

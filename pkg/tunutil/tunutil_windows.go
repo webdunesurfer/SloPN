@@ -73,6 +73,14 @@ func configureIP(ifce *water.Interface, ifceName string, cfg Config) (*water.Int
 		return nil, fmt.Errorf("netsh IP config failed for %s: %v (output: %s)", ifceName, err, string(output))
 	}
 
-	fmt.Printf("Windows Interface %s ready: IP=%s\n", ifceName, cfg.Addr)
+	// Set MTU explicitly
+	if cfg.MTU > 0 {
+		mtuCmd := exec.Command("netsh", "interface", "ipv4", "set", "subinterface", ifceName, fmt.Sprintf("mtu=%d", cfg.MTU), "store=active")
+		if output, err := mtuCmd.CombinedOutput(); err != nil {
+			fmt.Printf("Warning: failed to set MTU for %s: %v (output: %s)\n", ifceName, err, string(output))
+		}
+	}
+
+	fmt.Printf("Windows Interface %s ready: IP=%s MTU=%d\n", ifceName, cfg.Addr, cfg.MTU)
 	return ifce, nil
 }

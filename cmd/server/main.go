@@ -58,7 +58,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.7.3"
+const ServerVersion = "0.7.4"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -147,7 +147,7 @@ func main() {
 		Addr: sm.GetServerIP().String(),
 		Peer: "10.100.0.2",
 		Mask: "255.255.255.0",
-		MTU:  1200,
+		MTU:  1100,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
@@ -204,6 +204,7 @@ func main() {
 
 	listener, err := quic.Listen(finalConn, tlsConfig, &quic.Config{
 		EnableDatagrams: true,
+		KeepAlivePeriod: 10 * time.Second,
 	})
 	if err != nil {
 		log.Fatal(err)

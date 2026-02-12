@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.7.3"
+	HelperVersion = "0.7.4"
 )
 
 type Helper struct {
@@ -41,6 +41,7 @@ type Helper struct {
 	serverVersion string
 	fullTunnel    bool
 	obfuscate     bool
+	verbose       bool
 	bytesSent     uint64
 	bytesRecv     uint64
 	startTime     time.Time
@@ -50,6 +51,12 @@ type Helper struct {
 	tunIfce      interface{}
 	cancelVPN    context.CancelFunc
 	vpnWG        sync.WaitGroup
+}
+
+func (h *Helper) logVerbose(msg string) {
+	if h.verbose {
+		logHelper("[VERBOSE] " + msg)
+	}
 }
 
 func (h *Helper) loadIPCSecret() {
@@ -116,6 +123,18 @@ func (h *Helper) run(ctx context.Context) error {
 	// Ensure configuration directory exists (for logs and secrets)
 	os.MkdirAll(filepath.Dir(LogPath), 0755)
 
+	// Check for verbose flag file (Windows-friendly debug method)
+	flagPath := filepath.Join(filepath.Dir(LogPath), "verbose.flag")
+	if _, err := os.Stat(flagPath); err == nil {
+		h.verbose = true
+	} else if !os.IsNotExist(err) {
+		logHelper(fmt.Sprintf("[DEBUG] Verbose flag check error: %v (Path: %s)", err, flagPath))
+	} else {
+		// Just for deep debugging
+		logHelper(fmt.Sprintf("[DEBUG] Verbose flag not found at: %s", flagPath))
+	}
+
+	logHelper(fmt.Sprintf("Helper starting. Verbose: %v, Args: %v", h.verbose, os.Args))
 	h.loadIPCSecret()
 
 	l, err := net.Listen("tcp", TCPAddr)
@@ -208,6 +227,8 @@ func (h *Helper) disconnect() {
 	h.serverVIP = ""
 	h.serverVersion = ""
 	h.conn = nil
+	h.bytesSent = 0
+	h.bytesRecv = 0
 	h.startTime = time.Time{}
 }
 
@@ -294,11 +315,15 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 	}
 
 	logHelper("[VPN] Dialing QUIC...")
+	h.logVerbose("QUIC Config: KeepAlive=10s, Datagrams=true")
 	
 	dialCtx, dialCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer dialCancel()
 
-	conn, err := quic.Dial(dialCtx, finalConn, remoteAddr, tlsConf, &quic.Config{EnableDatagrams: true})
+	conn, err := quic.Dial(dialCtx, finalConn, remoteAddr, tlsConf, &quic.Config{
+		EnableDatagrams: true,
+		KeepAlivePeriod: 10 * time.Second,
+	})
 	if err != nil {
 		logHelper(fmt.Sprintf("[VPN] QUIC Dial error: %v", err))
 		return
@@ -342,13 +367,14 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 	tunCfg := tunutil.Config{
 		Name: "slopn-tap0", // Use the name we established
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
-		Mask: "255.255.255.0", MTU: 1200,
+		Mask: "255.255.255.0", MTU: 1100,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
 		logHelper(fmt.Sprintf("[VPN] TUN error: %v", err))
 		return
 	}
+	logHelper(fmt.Sprintf("[VPN] Interface %s created (IP: %s, MTU: %d)", tunCfg.Name, tunCfg.Addr, tunCfg.MTU))
 	defer ifce.Close()
 	ifceName = tunCfg.Name
 
@@ -359,12 +385,38 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 	isLinux := runtime.GOOS == "linux"
 	errChan := make(chan error, 2)
 
+	// Log max datagram size
+	h.logVerbose("MTU lowered to 1100 for stability")
+
+	// Stats ticker
 	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				h.mu.RLock()
+				sent := h.bytesSent
+				recv := h.bytesRecv
+				h.mu.RUnlock()
+				h.logVerbose(fmt.Sprintf("Heartbeat/Stats: Sent=%d bytes, Recv=%d bytes", sent, recv))
+			}
+		}
+	}()
+
+	go func() {
+		first := true
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
 			if err != nil {
 				errChan <- err
 				return
+			}
+			if first {
+				h.logVerbose(fmt.Sprintf("First datagram received from server: %s", iputil.FormatPacketSummary(data)))
+				first = false
 			}
 			h.mu.Lock()
 			h.bytesRecv += uint64(len(data))
@@ -375,6 +427,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 
 	go func() {
 		packet := make([]byte, 2000)
+		first := true
 		for {
 			n, err := ifce.Read(packet)
 			if err != nil {
@@ -382,10 +435,16 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 				return
 			}
 			payload := iputil.StripHeader(packet[:n])
+			if first {
+				h.logVerbose(fmt.Sprintf("First packet from TUN: %s", iputil.FormatPacketSummary(payload)))
+				first = false
+			}
 			h.mu.Lock()
 			h.bytesSent += uint64(len(payload))
 			h.mu.Unlock()
-			conn.SendDatagram(payload)
+			if err := conn.SendDatagram(payload); err != nil {
+				h.logVerbose(fmt.Sprintf("SendDatagram error: %v (Size: %d)", err, len(payload)))
+			}
 		}
 	}()
 
