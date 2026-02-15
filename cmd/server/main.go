@@ -44,7 +44,7 @@ func getEnvInt(key string, fallback int) int {
 }
 
 var (
-	verbose   = flag.Bool("v", false, "Enable verbose logging")
+	verbose   = flag.Bool("v", true, "Enable verbose logging")
 	subnet    = flag.String("subnet", getEnv("SLOPN_SUBNET", "10.100.0.0/24"), "VPN Subnet")
 	srvIP     = flag.String("ip", getEnv("SLOPN_IP", "10.100.0.1"), "Server Virtual IP")
 	port      = flag.Int("port", 4242, "UDP Port to listen on")
@@ -52,6 +52,7 @@ var (
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (Reality-style)")
 	mimic     = flag.String("mimic", getEnv("SLOPN_MIMIC", "www.google.com:443"), "Target server to mimic for unauthorized probes")
+	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 
 	// Rate Limiting Config
 	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
@@ -59,7 +60,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5"
+const ServerVersion = "0.9.5-diag"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -148,7 +149,7 @@ func main() {
 		Addr: sm.GetServerIP().String(),
 		Peer: "10.100.0.2",
 		Mask: "255.255.255.0",
-		MTU:  900,
+		MTU:  1100,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
@@ -198,6 +199,25 @@ func main() {
 	}
 
 	var finalConn net.PacketConn = udpConn
+
+	if *diagMode {
+		fmt.Printf("DIAGNOSTIC MODE ENABLED on :%d. Server will echo all packets.\n", *port)
+		go func() {
+			buf := make([]byte, 2048)
+			for {
+				n, addr, err := udpConn.ReadFrom(buf)
+				if err != nil {
+					return
+				}
+				fmt.Printf("[DIAG] RECV: %d bytes from %v\n", n, addr)
+				// Echo back
+				udpConn.WriteTo(buf[:n], addr)
+			}
+		}()
+		// Keep main alive
+		select {}
+	}
+
 	if *obfs {
 		fmt.Printf("Protocol Obfuscation (Reality) enabled. Mimicking: %s\n", *mimic)
 		finalConn = obfuscator.NewRealityConn(udpConn, *token, *mimic)

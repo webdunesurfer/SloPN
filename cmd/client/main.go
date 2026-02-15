@@ -39,7 +39,7 @@ type Config struct {
 
 var (
 	configPath = flag.String("config", "config.json", "Path to config.json")
-	overVerbose = flag.Bool("v", false, "Force verbose logging")
+	overVerbose = flag.Bool("v", true, "Force verbose logging")
 	fullTunnel = flag.Bool("full", false, "Enable Full Tunnel (route all traffic through VPN)")
 )
 
@@ -111,7 +111,7 @@ func main() {
 
 	json.NewEncoder(stream).Encode(protocol.LoginRequest{
 		Type: protocol.MessageTypeLoginRequest, Token: cfg.Token,
-		ClientVersion: "0.9.5", OS: runtime.GOOS,
+		ClientVersion: "0.9.5-diag", OS: runtime.GOOS,
 	})
 
 	var loginResp protocol.LoginResponse
@@ -126,7 +126,7 @@ func main() {
 	// 3. Setup TUN
 	tunCfg := tunutil.Config{
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
-		Mask: "255.255.255.0", MTU: 900,
+		Mask: "255.255.255.0", MTU: 1100,
 		SkipSubnetRoute: cfg.HostRouteOnly,
 		NoRoute:         cfg.NoRoute,
 	}

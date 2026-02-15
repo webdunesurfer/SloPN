@@ -3,8 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
-# Version: 0.9.5
-# Updated: 2026-02-15 21:00:00
+# Version: 0.9.5-diag
+# Updated: 2026-02-15 21:30:00
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}====================================================${NC}"
 echo -e "${BLUE}          SloPN Server Installation Script          ${NC}"
-echo -e "${BLUE}                Version: 0.9.5                      ${NC}"
+echo -e "${BLUE}                Version: 0.9.5-diag                 ${NC}"
 echo -e "${BLUE}====================================================${NC}"
 
 # 1. Dependency Check
@@ -43,19 +43,27 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.4")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.5-diag")
 # Force IPv4
 PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
 # Use /dev/tty to ensure 'read' works when script is piped from curl
 if [ -t 0 ]; then
     read -p "Enter mimic target (SNI) [default: www.google.com:443]: " INPUT_MIMIC
+    read -p "Enable Diagnostic Echo Mode? (y/n) [default: n]: " ENABLE_DIAG
 else
     read -p "Enter mimic target (SNI) [default: www.google.com:443]: " INPUT_MIMIC < /dev/tty
+    read -p "Enable Diagnostic Echo Mode? (y/n) [default: n]: " ENABLE_DIAG < /dev/tty
 fi
 
 USER_MIMIC=${INPUT_MIMIC:-"www.google.com:443"}
 MIMIC_HOST=$(echo "$USER_MIMIC" | cut -d: -f1)
+
+EXTRA_FLAGS=""
+if [[ "$ENABLE_DIAG" == "y"* ]]; then
+    EXTRA_FLAGS="-diag"
+    echo -e "${RED}DIAGNOSTIC MODE ENABLED - Server will echo all UDP packets.${NC}"
+fi
 
 # 4. Build and Run Docker Containers
 echo -e "\n${BLUE}[4/5] Building and starting Docker containers...${NC}"
@@ -71,7 +79,7 @@ fi
 # B) Start VPN Server
 docker stop slopn-server &>/dev/null || true
 docker rm slopn-server &>/dev/null || true
-docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true -e SLOPN_MAX_ATTEMPTS=5 -e SLOPN_WINDOW=5 -e SLOPN_BAN_DURATION=60 -e SLOPN_MIMIC="$USER_MIMIC" slopn-server -nat
+docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true -e SLOPN_MAX_ATTEMPTS=5 -e SLOPN_WINDOW=5 -e SLOPN_BAN_DURATION=60 -e SLOPN_MIMIC="$USER_MIMIC" slopn-server -nat $EXTRA_FLAGS
 
 # C) Start CoreDNS
 docker stop slopn-dns &>/dev/null || true
