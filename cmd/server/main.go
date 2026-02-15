@@ -61,7 +61,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v5"
+const ServerVersion = "0.9.5-diag-v6"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -219,15 +219,15 @@ func main() {
 			var entropy float64
 			for _, count := range counts {
 				p := float64(count) / float64(n)
-				entropy -= p * (math.Log(p) / math.Log(2))
+				entropy -= p * math.Log2(p)
 			}
 
 			// 2. Identify Packet Type
 			ptype := "RAW/ECHO"
 			if n > 0 && (buf[0]&0x80) != 0 {
-				ptype = "QUIC-LONG" // Handshake
+				ptype = "QUIC-LONG"
 			} else if n > 0 && (buf[0]&0x40) != 0 {
-				ptype = "QUIC-SHORT" // Data
+				ptype = "QUIC-SHORT"
 			}
 
 			// 3. Log Deep Metrics
@@ -236,8 +236,9 @@ func main() {
 			fmt.Printf("[DIAG] %-15v | Size: %4d | Ent: %4.2f | Type: %-10s | Hex: %x\n", addr, n, entropy, ptype, buf[:limit])
 
 			// 4. Dispatch
-			// Echo everything except standard QUIC (to avoid confusing the probe tool)
-			if n > 0 && (buf[0] < 0x40) {
+			// Echo EVERYTHING that doesn't look like a QUIC Long Header (Handshake)
+			// This ensures Baseline, MTU, and Flow tests all work.
+			if n > 0 && (buf[0]&0x80) == 0 {
 				udpConn.WriteTo(buf[:n], addr)
 			}
 		}
