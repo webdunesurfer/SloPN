@@ -56,7 +56,6 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		if err == nil {
 			receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
 			computedCRC := crc32.ChecksumIEEE(buf[:n-4])
-			
 			if n == size && string(buf[1:11]) == seqStr && receivedCRC == computedCRC {
 				success++
 				totalTime += time.Since(start)
@@ -66,13 +65,33 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		} else {
 			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	loss := float64(iterations-success) / float64(iterations) * 100
 	avg := time.Duration(0)
 	if success > 0 { avg = totalTime / time.Duration(success) }
 	logTest(name, fmt.Sprintf("RESULT: %d/%d received | Loss: %.1f%% | Avg RTT: %v", success, iterations, loss, avg))
+}
+
+func testQUIC(addr, alpn string) {
+	logTest("QUIC-PROBE", fmt.Sprintf("Testing Handshake Mirroring (ALPN: %s)...", alpn))
+	tlsConf := &tls.Config{
+		ServerName: "www.google.com",
+		InsecureSkipVerify: true,
+		NextProtos: []string{alpn},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	conn, err := quic.DialAddr(ctx, addr, tlsConf, nil)
+	if err != nil {
+		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
+		return
+	}
+	defer conn.CloseWithError(0, "")
+	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v", time.Since(start)))
 }
 
 func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
@@ -82,9 +101,7 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 
 	for i := 1; i <= 60; i++ {
 		payload := make([]byte, size)
-		if highEntropy {
-			rand.Read(payload)
-		}
+		if highEntropy { rand.Read(payload) }
 		payload[0] = 0xFF
 		seqStr := fmt.Sprintf("FLW-%06d", i)
 		copy(payload[1:11], []byte(seqStr))
@@ -129,12 +146,12 @@ func main() {
 	if err == nil {
 		defer f.Close()
 		out = io.MultiWriter(os.Stdout, f)
-		fmt.Printf("Saving forensic results to: %s\n", fileName)
+		fmt.Printf("Saving results to: %s\n", fileName)
 	} else {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v17 (The Entropy Master)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v18 (FULL Forensic Suite)\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -142,27 +159,25 @@ func main() {
 	conn, _ := net.DialUDP("udp", nil, udpAddr)
 	defer conn.Close()
 
+	// 1. Baseline
 	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
 	printf("\n")
 
-	// QUIC Handshake Mirroring
-	logTest("QUIC-PROBE", "Testing Handshake Mirroring (ALPN: h3)...")
-	tlsConf := &tls.Config{ServerName: "www.google.com", InsecureSkipVerify: true, NextProtos: []string{"h3"}}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	qconn, err := quic.DialAddr(ctx, *target, tlsConf, nil)
-	if err == nil {
-		logTest("QUIC-PROBE", "Handshake SUCCESS (Identity Mirroring OK)")
-		qconn.CloseWithError(0, "")
-	} else {
-		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
+	// 2. MTU Sweep
+	sizes := []int{500, 1200, 1400}
+	for _, s := range sizes {
+		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1)
 	}
 	printf("\n")
 
-	// TEST 1: Low Entropy Flow (ASCII)
+	// 3. Handshake
+	testQUIC(*target, "h3")
+	printf("\n")
+
+	// 4. Flow Low Entropy
 	testFlow("FLOW-LOW", conn, 64, false)
 	printf("\n")
 
-	// TEST 2: High Entropy Flow (Random 1000b)
+	// 5. Flow High Entropy
 	testFlow("FLOW-HIGH", conn, 1000, true)
 }
