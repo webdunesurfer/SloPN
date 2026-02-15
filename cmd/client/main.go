@@ -67,7 +67,8 @@ func main() {
 
 	// 1. Setup QUIC Client
 	if cfg.SNI == "" {
-		cfg.SNI = "v10.events.data.microsoft.com"
+		serverHost, _, _ := net.SplitHostPort(cfg.ServerAddr)
+		cfg.SNI = serverHost
 	}
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,

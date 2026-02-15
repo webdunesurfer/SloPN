@@ -295,7 +295,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token, sni string, full, obf
 
 	// Reality-style SNI Spoofing
 	if sni == "" {
-		sni = "v10.events.data.microsoft.com" // Default testing target
+		sni = serverHost
 	}
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,

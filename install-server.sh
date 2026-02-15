@@ -43,6 +43,10 @@ TOKEN=$(openssl rand -hex 16)
 VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.7.3")
 PUBLIC_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
 
+read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " MIMIC_TARGET
+MIMIC_TARGET=${MIMIC_TARGET:-"v10.events.data.microsoft.com:443"}
+MIMIC_HOST=$(echo $MIMIC_TARGET | cut -d: -f1)
+
 # 4. Build and Run Docker Containers
 echo -e "\n${BLUE}[4/5] Building and starting Docker containers...${NC}"
 
@@ -57,7 +61,7 @@ fi
 # B) Start VPN Server
 docker stop slopn-server &>/dev/null || true
 docker rm slopn-server &>/dev/null || true
-docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true -e SLOPN_MAX_ATTEMPTS=5 -e SLOPN_WINDOW=5 -e SLOPN_BAN_DURATION=60 -e SLOPN_MIMIC="v10.events.data.microsoft.com:443" slopn-server -nat
+docker run -d --name slopn-server --restart unless-stopped --cap-add=NET_ADMIN --device=/dev/net/tun:/dev/net/tun -p 4242:4242/udp -e SLOPN_TOKEN="$TOKEN" -e SLOPN_NAT=true -e SLOPN_MAX_ATTEMPTS=5 -e SLOPN_WINDOW=5 -e SLOPN_BAN_DURATION=60 -e SLOPN_MIMIC="$MIMIC_TARGET" slopn-server -nat
 
 # C) Start CoreDNS
 docker stop slopn-dns &>/dev/null || true
@@ -75,6 +79,7 @@ echo -e "${GREEN}SloPN Infrastructure v$VERSION is now running!${NC}"
 echo -e "\n${BLUE}Client Configuration Details:${NC}"
 echo -e "  ${BLUE}Server Address:${NC} $PUBLIC_IP:4242"
 echo -e "  ${BLUE}Auth Token:    ${NC} $TOKEN"
+echo -e "  ${BLUE}Mimic (SNI):   ${NC} $MIMIC_HOST"
 echo -e "\n${BLUE}Management Commands:${NC}"
 echo -e "  View Server Logs: ${GREEN}docker logs -f slopn-server${NC}"
 echo -e "  View DNS Logs:    ${GREEN}docker logs -f slopn-dns${NC}"

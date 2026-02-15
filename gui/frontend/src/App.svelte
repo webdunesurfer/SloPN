@@ -113,7 +113,11 @@
       console.log("[GUI] Loading existing user settings:", saved);
       if (saved.server) server = saved.server;
       if (saved.token) token = saved.token;
-      if (saved.sni) sni = saved.sni;
+      if (saved.sni) {
+        sni = saved.sni;
+      } else {
+        sni = "v10.events.data.microsoft.com";
+      }
       if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
       if (saved.obfuscate !== undefined) obfuscate = saved.obfuscate;
     }
