@@ -4,7 +4,7 @@
 # Author: webdunesurfer
 # License: GNU GPLv3
 # Version: 0.8.4
-# Updated: 2026-02-15 18:42:00
+# Updated: 2026-02-15 18:45:00
 
 set -e
 
@@ -44,11 +44,13 @@ fi
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
 VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.7.3")
-PUBLIC_IP=$(curl -s https://ifconfig.me || echo "your-server-ip")
+# Force IPv4
+PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
-read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " USER_MIMIC
-USER_MIMIC=${USER_MIMIC:-"v10.events.data.microsoft.com:443"}
-MIMIC_HOST=$(echo $USER_MIMIC | cut -d: -f1)
+echo -n "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: "
+read INPUT_MIMIC
+USER_MIMIC=${INPUT_MIMIC:-"v10.events.data.microsoft.com:443"}
+MIMIC_HOST=$(echo "$USER_MIMIC" | cut -d: -f1)
 
 # 4. Build and Run Docker Containers
 echo -e "\n${BLUE}[4/5] Building and starting Docker containers...${NC}"
