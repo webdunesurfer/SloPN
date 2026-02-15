@@ -39,7 +39,7 @@ func drain(conn *net.UDPConn) {
 	}
 }
 
-func runUDPTest(name string, conn *net.UDPConn, size int, label string, iterations int) {
+func runUDPTest(name string, conn *net.UDPConn, size int, label string, iterations int, seqPrefix string) {
 	success := 0
 	var totalTime time.Duration
 
@@ -52,7 +52,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		if size > 32 { rand.Read(payload[32:]) }
 		
 		payload[0] = 0xFF 
-		seqStr := fmt.Sprintf("SEQ-%06d", i)
+		seqStr := fmt.Sprintf("%s-%06d", seqPrefix, i)
 		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
@@ -61,7 +61,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		start := time.Now()
 		conn.Write(payload)
 		
-		// Smart Read Loop: Handles out-of-order/stale packets
+		// Smart Read Loop
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
@@ -82,7 +82,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		logTest(name, fmt.Sprintf("  %s: FAILED (Timeout or Corrupt)", seqStr))
 
 	next_iteration:
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	loss := float64(iterations-success) / float64(iterations) * 100
@@ -134,8 +134,12 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 			_, err := conn.Read(buf)
 			if err != nil { break }
 			if string(buf[1:11]) == seqStr {
-				received = true
-				break
+				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+				if receivedCRC == computedCRC {
+					received = true
+					break
+				}
 			}
 		}
 
@@ -168,7 +172,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v23\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v24\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -176,12 +180,14 @@ func main() {
 	conn, _ := net.DialUDP("udp", nil, udpAddr)
 	defer conn.Close()
 
-	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
+	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5, "SEQ")
 	printf("\n")
 
 	sizes := []int{500, 1200, 1400}
-	for _, s := range sizes {
-		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1)
+	for i, s := range sizes {
+		// Use distinct prefixes for MTU tests to avoid replay detection
+		prefix := fmt.Sprintf("M%d", i) 
+		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, prefix)
 	}
 	printf("\n")
 
