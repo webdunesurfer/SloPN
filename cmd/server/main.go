@@ -62,8 +62,8 @@ const ServerVersion = "0.9.5-diag-v16"
 
 type RateLimiter struct {
 	mu       sync.Mutex
-	attempts map[string][]time.Time // IP -> List of failure timestamps
-	banned   map[string]time.Time   // IP -> Ban expiration time
+	attempts map[string][]time.Time 
+	banned   map[string]time.Time   
 }
 
 func NewRateLimiter() *RateLimiter {
@@ -76,12 +76,8 @@ func NewRateLimiter() *RateLimiter {
 func (rl *RateLimiter) IsBanned(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-
 	expiry, exists := rl.banned[ip]
-	if !exists {
-		return false
-	}
-
+	if !exists { return false }
 	if time.Now().After(expiry) {
 		delete(rl.banned, ip)
 		delete(rl.attempts, ip)
@@ -93,27 +89,19 @@ func (rl *RateLimiter) IsBanned(ip string) bool {
 func (rl *RateLimiter) RecordFailure(ip string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-
 	now := time.Now()
 	rl.attempts[ip] = append(rl.attempts[ip], now)
-
-	// Keep only attempts within the window
-	window := time.Duration(5) * time.Minute
+	window := 5 * time.Minute
 	var recent []time.Time
 	for _, t := range rl.attempts[ip] {
-		if now.Sub(t) < window {
-			recent = append(recent, t)
-		}
+		if now.Sub(t) < window { recent = append(recent, t) }
 	}
 	rl.attempts[ip] = recent
-
 	if len(rl.attempts[ip]) >= 5 {
-		rl.banned[ip] = now.Add(time.Duration(60) * time.Minute)
-		logServer("BAN", "---", ip, fmt.Sprintf("Duration: 60m; Attempts: %d", len(rl.attempts[ip])))
+		rl.banned[ip] = now.Add(60 * time.Minute)
 	}
 }
 
-// Log formats: TIMESTAMP,EVENT,VIP,REMOTE_ADDR,DETAILS
 func logServer(event, vip, remote, details string) {
 	fmt.Printf("%s,%s,%s,%s,%s\n", time.Now().Format(time.RFC3339), event, vip, remote, details)
 }
@@ -136,11 +124,7 @@ func main() {
 	}
 
 	tunCfg := tunutil.Config{
-		Name: "tun0",
-		Addr: sm.GetServerIP().String(),
-		Peer: "10.100.0.2",
-		Mask: "255.255.255.0",
-		MTU:  1100,
+		Name: "tun0", Addr: sm.GetServerIP().String(), Peer: "10.100.0.2", Mask: "255.255.255.0", MTU:  1100,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
@@ -162,22 +146,16 @@ func main() {
 	}
 
 	tlsConfig, err := certutil.GenerateSelfSignedConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
+	if err != nil { log.Fatal(err) }
 
 	udpConn, err := net.ListenPacket("udp4", fmt.Sprintf("0.0.0.0:%d", *port))
-	if err != nil {
-		log.Fatal(err)
-	}
+	if err != nil { log.Fatal(err) }
 
 	if *diagMode {
 		fmt.Printf("DIAGNOSTIC MODE v16 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
-
-		// Track timing per client
 		lastSeenMap := make(map[string]time.Time)
 		var lsMu sync.Mutex
 
@@ -200,7 +178,7 @@ func main() {
 			if n > 0 && buf[0] == 0xFF {
 				ptype = "PROBE"
 				if n >= 16 {
-					seq = string(buf[1:11]) // 10 chars
+					seq = string(buf[1:11])
 					receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
 					computedCRC := crc32.ChecksumIEEE(buf[:n-4])
 					if receivedCRC == computedCRC { integrity = "OK" } else { integrity = "CORRUPT" }
@@ -226,22 +204,6 @@ func main() {
 				udpConn.WriteTo(buf[:n], addr)
 				fmt.Printf("[DIAG] -> ECHO SENT to %v\n", addr)
 			} else if mimicAddr != nil {
-			}
-
-			counts := make(map[byte]int)
-			for _, b := range buf[:n] { counts[b]++ }
-			var entropy float64
-			for _, count := range counts {
-				p := float64(count) / float64(n)
-				entropy -= p * math.Log2(p)
-			}
-
-			fmt.Printf("[DIAG] %-15v | Size: %4d | ID: %-10s | Int: %-7s | Type: %-10s | Ent: %4.2f\n", addr, n, seq, integrity, ptype, entropy)
-
-			if ptype == "PROBE" {
-				udpConn.WriteTo(buf[:n], addr)
-			} else if mimicAddr != nil {
-				remoteKey := addr.String()
 				dpMu.Lock()
 				proxyConn, exists := diagProxies[remoteKey]
 				if !exists {
@@ -277,19 +239,14 @@ func main() {
 	}
 
 	listener, err := quic.Listen(finalConn, tlsConfig, &quic.Config{
-		EnableDatagrams: true,
-		KeepAlivePeriod: 10 * time.Second,
+		EnableDatagrams: true, KeepAlivePeriod: 10 * time.Second,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	if err != nil { log.Fatal(err) }
 	defer listener.Close()
 
 	for {
 		conn, err := listener.Accept(context.Background())
-		if err != nil {
-			continue
-		}
+		if err != nil { continue }
 		go handleConnection(conn, ifce, sm, rl)
 	}
 }
