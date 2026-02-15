@@ -5,9 +5,11 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"hash/crc32"
 	"log"
 	"math"
 	"net"
@@ -54,14 +56,9 @@ var (
 	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (Reality-style)")
 	mimic     = flag.String("mimic", getEnv("SLOPN_MIMIC", "www.google.com:443"), "Target server to mimic for unauthorized probes")
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
-
-	// Rate Limiting Config
-	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
-	windowMins  = flag.Int("window", getEnvInt("SLOPN_WINDOW", 5), "Window in minutes for failed attempts")
-	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v12"
+const ServerVersion = "0.9.5-diag-v13"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -101,7 +98,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	rl.attempts[ip] = append(rl.attempts[ip], now)
 
 	// Keep only attempts within the window
-	window := time.Duration(*windowMins) * time.Minute
+	window := time.Duration(5) * time.Minute
 	var recent []time.Time
 	for _, t := range rl.attempts[ip] {
 		if now.Sub(t) < window {
@@ -110,9 +107,9 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 	}
 	rl.attempts[ip] = recent
 
-	if len(rl.attempts[ip]) >= *maxAttempts {
-		rl.banned[ip] = now.Add(time.Duration(*banMins) * time.Minute)
-		logServer("BAN", "---", ip, fmt.Sprintf("Duration: %dm; Attempts: %d", *banMins, len(rl.attempts[ip])))
+	if len(rl.attempts[ip]) >= 5 {
+		rl.banned[ip] = now.Add(time.Duration(60) * time.Minute)
+		logServer("BAN", "---", ip, fmt.Sprintf("Duration: 60m; Attempts: %d", len(rl.attempts[ip])))
 	}
 }
 
@@ -132,17 +129,10 @@ func main() {
 	rl := NewRateLimiter()
 
 	if runtime.GOOS == "linux" {
-		// Only attempt deletion if it exists to avoid noisy 255 exits
 		if _, err := net.InterfaceByName("tun0"); err == nil {
-			fmt.Println("Cleaning up existing tun0 interface...")
 			exec.Command("ip", "tuntap", "del", "mode", "tun", "name", "tun0").Run()
 		}
-		
-		fmt.Println("Pre-creating TUN interface with nopi...")
-		err := exec.Command("ip", "tuntap", "add", "mode", "tun", "name", "tun0", "nopi").Run()
-		if err != nil {
-			fmt.Printf("Note: tun0 pre-creation skipped or failed: %v (falling back to automatic)\n", err)
-		}
+		exec.Command("ip", "tuntap", "add", "mode", "tun", "name", "tun0", "nopi").Run()
 	}
 
 	tunCfg := tunutil.Config{
@@ -160,31 +150,13 @@ func main() {
 
 	if runtime.GOOS == "linux" {
 		exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Run()
-		exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
-		exec.Command("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0").Run()
-		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0", ifce.Name())).Run()
-		exec.Command("sysctl", "-w", fmt.Sprintf("net.ipv4.conf.%s.accept_local=1", ifce.Name())).Run()
-
 		if *enableNAT {
-			fmt.Println("Enabling NAT (MASQUERADE)...")
 			phyIfce, _ := exec.Command("sh", "-c", "ip route show default | awk '/default/ {print $5}'").Output()
 			ifaceName := strings.TrimSpace(string(phyIfce))
 			if ifaceName != "" {
 				exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", *subnet, "-o", ifaceName, "-j", "MASQUERADE").Run()
 				exec.Command("iptables", "-A", "FORWARD", "-i", "tun0", "-j", "ACCEPT").Run()
 				exec.Command("iptables", "-A", "FORWARD", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
-				fmt.Printf("NAT enabled on interface: %s\n", ifaceName)
-
-				// DNS REDIRECTION:
-				fmt.Println("Configuring DNS Redirection...")
-				// Better way: CoreDNS is on the bridge. We redirect to the bridge gateway.
-				gwOut, _ := exec.Command("sh", "-c", "ip route | grep default | awk '{print $3}'").Output()
-				dockerGW := strings.TrimSpace(string(gwOut))
-				if dockerGW != "" {
-					exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-i", "tun0", "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", dockerGW).Run()
-					exec.Command("iptables", "-t", "nat", "-A", "PREROUTING", "-i", "tun0", "-p", "tcp", "--dport", "53", "-j", "DNAT", "--to-destination", dockerGW).Run()
-					fmt.Printf("DNS queries from VPN will be redirected to Docker Gateway: %s\n", dockerGW)
-				}
 			}
 		}
 	}
@@ -199,11 +171,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var finalConn net.PacketConn = udpConn
-
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v9 ENABLED on :%d.\n", *port)
-		
+		fmt.Printf("DIAGNOSTIC MODE v13 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
@@ -213,7 +182,24 @@ func main() {
 			n, addr, err := udpConn.ReadFrom(buf)
 			if err != nil { continue }
 
-			// 1. Labeling Fix
+			ptype := "RAW"
+			seq := "NONE"
+			integrity := "N/A"
+
+			if n > 0 && buf[0] == 0xFF {
+				ptype = "PROBE"
+				if n >= 16 {
+					seq = string(buf[1:12])
+					receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+					computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+					if receivedCRC == computedCRC { integrity = "OK" } else { integrity = "CORRUPT" }
+				}
+			} else if n > 0 && (buf[0]&0x80) != 0 {
+				ptype = "QUIC-LONG"
+			} else if n > 0 && (buf[0]&0x40) != 0 {
+				ptype = "QUIC-SHORT"
+			}
+
 			counts := make(map[byte]int)
 			for _, b := range buf[:n] { counts[b]++ }
 			var entropy float64
@@ -222,36 +208,17 @@ func main() {
 				entropy -= p * math.Log2(p)
 			}
 
-			// 3. Log Deep Metrics with Sequence Parsing
-			ptype := "RAW"
-			seq := "NONE"
-			if n > 0 && buf[0] == 0xFF {
-				ptype = "PROBE"
-				// Try to parse sequence ID (matches probe tool format)
-				if n >= 12 {
-					seq = string(buf[1:12]) // e.g. "SEQ-000001"
-				}
-			} else if n > 0 && (buf[0]&0x80) != 0 {
-				ptype = "QUIC-LONG"
-			} else if n > 0 && (buf[0]&0x40) != 0 {
-				ptype = "QUIC-SHORT"
-			}
+			fmt.Printf("[DIAG] %-15v | Size: %4d | ID: %-10s | Int: %-7s | Type: %-10s | Ent: %4.2f\n", addr, n, seq, integrity, ptype, entropy)
 
-			fmt.Printf("[DIAG] %-15v | Size: %4d | ID: %-10s | Type: %-10s | Ent: %4.2f\n", addr, n, seq, ptype, entropy)
-
-			// 4. Dispatch
 			if ptype == "PROBE" {
-				fmt.Printf("[DIAG] -> ECHOING %s back to %v\n", seq, addr)
 				udpConn.WriteTo(buf[:n], addr)
 			} else if mimicAddr != nil {
-				// Stable Proxy Logic for Diag
 				remoteKey := addr.String()
 				dpMu.Lock()
 				proxyConn, exists := diagProxies[remoteKey]
 				if !exists {
 					proxyConn, _ = net.DialUDP("udp", nil, mimicAddr)
 					diagProxies[remoteKey] = proxyConn
-					// Cleanup after 30s
 					go func(k string, c *net.UDPConn) {
 						time.Sleep(30 * time.Second)
 						dpMu.Lock()
@@ -259,8 +226,6 @@ func main() {
 						dpMu.Unlock()
 						c.Close()
 					}(remoteKey, proxyConn)
-					
-					// Listen for responses
 					go func(clientAddr net.Addr, pc *net.UDPConn) {
 						rBuf := make([]byte, 2048)
 						for {
@@ -277,6 +242,7 @@ func main() {
 		}
 	}
 
+	var finalConn net.PacketConn = udpConn
 	if *obfs {
 		fmt.Printf("Protocol Obfuscation (Reality) enabled. Mimicking: %s\n", *mimic)
 		finalConn = obfuscator.NewRealityConn(udpConn, *token, *mimic)
@@ -291,33 +257,6 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Printf("SloPN Server v%s listening on :%d (VIP: %s)\n", ServerVersion, *port, sm.GetServerIP())
-
-	// TUN -> QUIC loop
-	go func() {
-		packet := make([]byte, 2000)
-		for {
-			n, err := ifce.Read(packet)
-			if err != nil {
-				return
-			}
-
-			summary := iputil.FormatPacketSummary(packet[:n])
-			destIP := iputil.GetDestinationIP(packet[:n])
-
-			if conn, ok := sm.GetSession(destIP.String()); ok {
-				if *verbose {
-					fmt.Printf("TUN READ: %s\n", summary)
-				}
-				payload := iputil.StripHeader(packet[:n])
-				err = conn.SendDatagram(payload)
-				if err != nil && *verbose {
-					log.Printf("QUIC Send error: %v", err)
-				}
-			}
-		}
-	}()
-
 	for {
 		conn, err := listener.Accept(context.Background())
 		if err != nil {
@@ -329,99 +268,39 @@ func main() {
 
 func handleConnection(conn *quic.Conn, ifce *water.Interface, sm *session.Manager, rl *RateLimiter) {
 	remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-
 	if rl.IsBanned(remoteIP) {
-		fmt.Printf("[SECURITY] Refused connection from banned IP: %s\n", remoteIP)
 		conn.CloseWithError(0x03, "banned")
 		return
 	}
-
 	stream, err := conn.AcceptStream(context.Background())
-	if err != nil {
-		return
-	}
+	if err != nil { return }
 	defer stream.Close()
 
 	var loginReq protocol.LoginRequest
-	if err := json.NewDecoder(stream).Decode(&loginReq); err != nil {
-		return
-	}
+	if err := json.NewDecoder(stream).Decode(&loginReq); err != nil { return }
 
-	// Validate Token
 	if loginReq.Token != *token {
-		remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-		logServer("AUTH_FAILURE", "---", remoteIP, "")
 		rl.RecordFailure(remoteIP)
-		resp := protocol.LoginResponse{
-			Type:          protocol.MessageTypeLoginResponse,
-			Status:        "error",
-			Message:       "Invalid authentication token",
-			ServerVersion: ServerVersion,
-		}
-		json.NewEncoder(stream).Encode(resp)
 		conn.CloseWithError(1, "unauthorized")
 		return
 	}
 
-	vip, err := sm.AllocateIP()
-	if err != nil {
-		fmt.Printf("IP allocation failed for %v: %v\n", conn.RemoteAddr(), err)
-		resp := protocol.LoginResponse{
-			Type:          protocol.MessageTypeLoginResponse,
-			Status:        "error",
-			Message:       "Server failed to allocate IP",
-			ServerVersion: ServerVersion,
-		}
-		json.NewEncoder(stream).Encode(resp)
-		conn.CloseWithError(2, "ip allocation failed")
-		return
-	}
-
+	vip, _ := sm.AllocateIP()
 	resp := protocol.LoginResponse{
 		Type: protocol.MessageTypeLoginResponse, Status: "success",
 		AssignedVIP: vip.String(), ServerVIP: sm.GetServerIP().String(),
 		ServerVersion: ServerVersion,
 	}
 	json.NewEncoder(stream).Encode(resp)
-
 	sm.AddSession(vip, conn)
-	logServer("CONNECTED", vip.String(), conn.RemoteAddr().String(), "")
 
 	ctx := conn.Context()
 	go func() {
-		defer func() {
-			sm.RemoveSession(vip.String())
-			logServer("DISCONNECTED", vip.String(), conn.RemoteAddr().String(), "")
-		}()
+		defer sm.RemoveSession(vip.String())
 		for {
 			data, err := conn.ReceiveDatagram(ctx)
-			if err != nil {
-				return
-			}
-			// Only log data path in verbose mode
-			if *verbose {
-				fmt.Printf("QUIC RECV [%s]: %s\n", vip, iputil.FormatPacketSummary(data))
-			}
-
-			// OPTIMIZATION: Spoke-to-Spoke Fast Path
-			// If destination is another client, route directly without TUN
-			destIP := iputil.GetDestinationIP(data)
-			if destIP != nil && !destIP.Equal(sm.GetServerIP()) {
-				if targetConn, ok := sm.GetSession(destIP.String()); ok {
-					if *verbose {
-						fmt.Printf("  -> FAST-PATH: %s -> %s\n", vip, destIP)
-					}
-					targetConn.SendDatagram(data)
-					continue
-				}
-			}
-
-			// Always use false here because we pre-create tun0 with 'nopi'
-			payload := iputil.AddHeader(data, false)
-			_, err = ifce.Write(payload)
-			if err != nil && *verbose {
-				log.Printf("TUN Write error: %v (Hex: %s)", err, iputil.HexDump(payload))
-			}
+			if err != nil { return }
+			ifce.Write(iputil.AddHeader(data, runtime.GOOS == "linux"))
 		}
 	}()
 	<-ctx.Done()

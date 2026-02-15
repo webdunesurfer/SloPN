@@ -111,7 +111,7 @@ func main() {
 
 	json.NewEncoder(stream).Encode(protocol.LoginRequest{
 		Type: protocol.MessageTypeLoginRequest, Token: cfg.Token,
-		ClientVersion: "0.9.5-diag-v12", OS: runtime.GOOS,
+		ClientVersion: "0.9.5-diag-v13", OS: runtime.GOOS,
 	})
 
 	var loginResp protocol.LoginResponse

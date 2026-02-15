@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"math/rand"
 	"net"
@@ -27,23 +29,26 @@ func logTest(name, msg string) {
 	printf("[%s] [%-12s] %s\n", time.Now().Format("15:04:05"), name, msg)
 }
 
-func runUDPTest(name string, addr string, size int, label string, iterations int) {
-	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
+func runUDPTest(name string, conn *net.UDPConn, size int, label string, iterations int) {
 	success := 0
 	var totalTime time.Duration
 
 	logTest(name, fmt.Sprintf("Starting %s (%d bytes, %d probes)...", label, size, iterations))
 
 	for i := 1; i <= iterations; i++ {
-		conn, _ := net.DialUDP("udp", nil, udpAddr)
-		
 		payload := make([]byte, size)
-		if size > 32 { rand.Read(payload[32:]) }
+		if size > 32 {
+			rand.Read(payload[32:])
+		}
 		
-		// Forensic Header: [0xFF] + [SEQ-000000]
+		// Forensic Header: [Marker 0xFF] + [Sequence 11 bytes] + [CRC32 4 bytes at end]
 		payload[0] = 0xFF 
 		seqStr := fmt.Sprintf("SEQ-%06d", i)
 		copy(payload[1:12], []byte(seqStr))
+		
+		// Calculate CRC32 of everything except the last 4 bytes
+		checksum := crc32.ChecksumIEEE(payload[:size-4])
+		binary.BigEndian.PutUint32(payload[size-4:], checksum)
 
 		start := time.Now()
 		conn.Write(payload)
@@ -58,22 +63,23 @@ func runUDPTest(name string, addr string, size int, label string, iterations int
 		} else if err != nil {
 			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
 		}
-		conn.Close()
-		time.Sleep(100 * time.Millisecond) // Inter-probe delay
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	loss := float64(iterations-success) / float64(iterations) * 100
 	avg := time.Duration(0)
-	if success > 0 { avg = totalTime / time.Duration(success) }
+	if success > 0 {
+		avg = totalTime / time.Duration(success)
+	}
 	logTest(name, fmt.Sprintf("RESULT: %d/%d received | Loss: %.1f%% | Avg RTT: %v", success, iterations, loss, avg))
 }
 
 func testQUIC(addr, alpn string) {
 	logTest("QUIC-PROBE", fmt.Sprintf("Testing Handshake Mirroring (ALPN: %s)...", alpn))
 	tlsConf := &tls.Config{
-		ServerName: "www.google.com",
+		ServerName:         "www.google.com",
 		InsecureSkipVerify: true,
-		NextProtos: []string{alpn},
+		NextProtos:         []string{alpn},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -81,24 +87,24 @@ func testQUIC(addr, alpn string) {
 	start := time.Now()
 	conn, err := quic.DialAddr(ctx, addr, tlsConf, nil)
 	if err != nil {
-		logTest("QUIC-PROBE", fmt.Sprintf("Handshake result: %v", err))
+		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
 		return
 	}
 	defer conn.CloseWithError(0, "")
 	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v", time.Since(start)))
 }
 
-func testFlow(addr string) {
-	logTest("FLOW-TEST", "Starting 60-second forensic flow test (1 packet/sec)...")
-	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
-	conn, _ := net.DialUDP("udp", nil, udpAddr)
-	defer conn.Close()
+func testFlow(name string, conn *net.UDPConn) {
+	logTest(name, "Starting 60-second forensic flow test (1 packet/sec)...")
 
 	for i := 1; i <= 60; i++ {
 		payload := make([]byte, 64)
 		payload[0] = 0xFF
 		seqStr := fmt.Sprintf("FLW-%06d", i)
 		copy(payload[1:12], []byte(seqStr))
+		
+		checksum := crc32.ChecksumIEEE(payload[:60])
+		binary.BigEndian.PutUint32(payload[60:], checksum)
 		
 		conn.Write(payload)
 		
@@ -107,13 +113,13 @@ func testFlow(addr string) {
 		_, _, err := conn.ReadFromUDP(buf)
 		
 		if err != nil {
-			logTest("FLOW-TEST", fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
-		} else if i % 10 == 0 {
-			logTest("FLOW-TEST", fmt.Sprintf("  Flow healthy at %ds...", i))
+			logTest(name, fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
+		} else if i%10 == 0 {
+			logTest(name, fmt.Sprintf("  Flow healthy at %ds...", i))
 		}
 		time.Sleep(1 * time.Second)
 	}
-	logTest("FLOW-TEST", "Forensic flow test complete.")
+	logTest(name, "Continuous flow test complete.")
 }
 
 func main() {
@@ -129,26 +135,39 @@ func main() {
 	if err == nil {
 		defer f.Close()
 		out = io.MultiWriter(os.Stdout, f)
-		fmt.Printf("Saving results to: %s\n", fileName)
+		fmt.Printf("Saving forensic results to: %s\n", fileName)
 	} else {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v12 (Full Forensic Edition)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v13 (The Integrity Edition)\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
-	runUDPTest("BASELINE", *target, 64, "Forensic Ping", 5)
+	udpAddr, _ := net.ResolveUDPAddr("udp", *target)
+	conn, err := net.ListenUDP("udp", nil) // Single persistent socket
+	if err != nil {
+		logTest("ERROR", fmt.Sprintf("Failed to create UDP socket: %v", err))
+		return
+	}
+	defer conn.Close()
+	
+	// Set remote address for convenience
+	// We can't use Connect() because we want to reuse this for QUIC tests later if needed
+	// But net.DialUDP creates a connected socket, which is what we want.
+	conn, _ = net.DialUDP("udp", nil, udpAddr)
+
+	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
 	printf("\n")
 
 	sizes := []int{500, 1200, 1400}
 	for _, s := range sizes {
-		runUDPTest("MTU-SWEEP", *target, s, fmt.Sprintf("%d bytes", s), 1)
+		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1)
 	}
 	printf("\n")
 
 	testQUIC(*target, "h3")
 	printf("\n")
 
-	testFlow(*target)
+	testFlow("FLOW-TEST", conn)
 }
