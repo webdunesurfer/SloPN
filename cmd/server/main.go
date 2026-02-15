@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/exec"
@@ -60,7 +61,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v4"
+const ServerVersion = "0.9.5-diag-v5"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -201,7 +202,7 @@ func main() {
 	var finalConn net.PacketConn = udpConn
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v4 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v5 ENABLED on :%d.\n", *port)
 		
 		for {
 			buf := make([]byte, 2048)
@@ -210,7 +211,7 @@ func main() {
 				continue
 			}
 
-			// 1. Calculate Entropy (Shannon Entropy approximation)
+			// 1. Standard Shannon Entropy (0-8 bits)
 			counts := make(map[byte]int)
 			for _, b := range buf[:n] {
 				counts[b]++
@@ -218,21 +219,27 @@ func main() {
 			var entropy float64
 			for _, count := range counts {
 				p := float64(count) / float64(n)
-				entropy -= p * (p * 0.693147) // Simple log2 approximation
+				entropy -= p * (math.Log(p) / math.Log(2))
 			}
 
-			// 2. Log Detailed Metrics
-			limit := n
-			if limit > 16 { limit = 16 }
-			fmt.Printf("[DIAG] %-15v | Size: %4d | Entropy: %4.2f | Hex: %x\n", addr, n, entropy, buf[:limit])
+			// 2. Identify Packet Type
+			ptype := "RAW/ECHO"
+			if n > 0 && (buf[0]&0x80) != 0 {
+				ptype = "QUIC-LONG" // Handshake
+			} else if n > 0 && (buf[0]&0x40) != 0 {
+				ptype = "QUIC-SHORT" // Data
+			}
 
-			// 3. Dispatch
-			// If it looks like a probe (ASCII PING or MTU), echo it
-			if n > 0 && (buf[0] == 'P' || buf[0] == 'M' || buf[0] == 0) {
+			// 3. Log Deep Metrics
+			limit := n
+			if limit > 24 { limit = 24 }
+			fmt.Printf("[DIAG] %-15v | Size: %4d | Ent: %4.2f | Type: %-10s | Hex: %x\n", addr, n, entropy, ptype, buf[:limit])
+
+			// 4. Dispatch
+			// Echo everything except standard QUIC (to avoid confusing the probe tool)
+			if n > 0 && (buf[0] < 0x40) {
 				udpConn.WriteTo(buf[:n], addr)
 			}
-			// Note: In diag-v4 we prioritize raw UDP over QUIC to ensure 
-			// baseline connectivity is verified first.
 		}
 	}
 
