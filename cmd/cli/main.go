@@ -6,13 +6,21 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/webdunesurfer/SloPN/pkg/ipc"
 )
 
-const (
+func init() {
+	if runtime.GOOS == "darwin" {
+		SecretPath = "/Library/Application Support/SloPN/ipc.secret"
+		ConfigPath = "/Library/Application Support/SloPN/config.json"
+	}
+}
+
+var (
 	HelperAddr = "127.0.0.1:54321"
 	SecretPath = `C:\ProgramData\SloPN\ipc.secret`
 	ConfigPath = `C:\ProgramData\SloPN\config.json`
@@ -21,6 +29,7 @@ const (
 type Config struct {
 	Server    string      `json:"server"`
 	Token     string      `json:"token"`
+	SNI       string      `json:"sni"`
 	Obfuscate interface{} `json:"obfuscate"`
 }
 
@@ -28,6 +37,7 @@ func main() {
 	connectCmd := flag.NewFlagSet("connect", flag.ExitOnError)
 	server := connectCmd.String("server", "", "Server address (e.g. 1.2.3.4:4242)")
 	token := connectCmd.String("token", "", "Authentication token")
+	sni := connectCmd.String("sni", "", "Mimic Target (SNI)")
 	full := connectCmd.Bool("full", true, "Enable full tunnel")
 	obfs := connectCmd.Bool("obfs", true, "Enable protocol obfuscation")
 
@@ -39,7 +49,7 @@ func main() {
 	switch os.Args[1] {
 	case "connect":
 		connectCmd.Parse(os.Args[2:])
-		doConnect(*server, *token, *full, *obfs)
+		doConnect(*server, *token, *sni, *full, *obfs)
 	case "disconnect":
 		sendSimpleCommand(ipc.CmdDisconnect)
 	case "status":
@@ -53,7 +63,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("SloPN CLI Client v0.7.3")
+	fmt.Println("SloPN CLI Client v0.8.2")
 	fmt.Println("Usage:")
 	fmt.Println("  slopn connect [flags]   Connect to VPN")
 	fmt.Println("  slopn disconnect        Disconnect VPN")
@@ -62,6 +72,7 @@ func printUsage() {
 	fmt.Println("\nConnect Flags:")
 	fmt.Println("  -server <addr>  Override server address")
 	fmt.Println("  -token <token>  Override auth token")
+	fmt.Println("  -sni <sni>      Override mimic target (SNI)")
 	fmt.Println("  -full           Enable full tunnel (default true)")
 	fmt.Println("  -obfs           Enable obfuscation (default true)")
 }
@@ -119,7 +130,7 @@ func sendSimpleCommand(cmd ipc.Command) {
 	fmt.Println(resp.Message)
 }
 
-func doConnect(srv, tok string, full, obfs bool) {
+func doConnect(srv, tok, sni string, full, obfs bool) {
 	// Fallback to config.json if flags are missing
 	cfg := loadConfig()
 	if srv == "" {
@@ -127,6 +138,12 @@ func doConnect(srv, tok string, full, obfs bool) {
 	}
 	if tok == "" {
 		tok = cfg.Token
+	}
+	if sni == "" {
+		sni = cfg.SNI
+		if sni == "" {
+			sni = "v10.events.data.microsoft.com"
+		}
 	}
 	
 	// Handle obfuscate default logic from config
@@ -147,11 +164,12 @@ func doConnect(srv, tok string, full, obfs bool) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Connecting to %s (Full: %v, Obfs: %v)...\n", srv, full, obfs)
+	fmt.Printf("Connecting to %s (SNI: %s, Full: %v, Obfs: %v)...\n", srv, sni, full, obfs)
 	resp, err := sendRequest(ipc.Request{
 		Command:    ipc.CmdConnect,
 		ServerAddr: srv,
 		Token:      tok,
+		SNI:        sni,
 		FullTunnel: full,
 		Obfuscate:  obfs,
 	})

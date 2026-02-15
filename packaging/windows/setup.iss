@@ -112,9 +112,11 @@ begin
     'Please enter the connection details provided by your SloPN server administrator.');
   ConfigPage.Add('Server Address (e.g. 1.2.3.4:4242):', False);
   ConfigPage.Add('Auth Token:', True);
+  ConfigPage.Add('Mimic Target (SNI):', False);
   
   ConfigPage.Values[0] := '';
   ConfigPage.Values[1] := '';
+  ConfigPage.Values[2] := 'v10.events.data.microsoft.com';
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -154,6 +156,7 @@ var
   SettingsContent: String;
   ServerVal: String;
   TokenVal: String;
+  SNIVal: String;
 begin
   if CurStep = ssInstall then
   begin
@@ -164,6 +167,7 @@ begin
   begin
     ServerVal := ConfigPage.Values[0];
     TokenVal := ConfigPage.Values[1];
+    SNIVal := ConfigPage.Values[2];
     
     // Ensure ProgramData directory exists for logs/secrets
     ForceDirectories(ExpandConstant('{commonappdata}') + '\SloPN');
@@ -174,7 +178,7 @@ begin
     // Write initial config (including token and obfuscate default) to ProgramData
     // This allows the GUI to pick it up via GetInitialConfig()
     SaveStringToFile(ExpandConstant('{commonappdata}') + '\SloPN\config.json', 
-      '{"server":"' + ServerVal + '", "token":"' + TokenVal + '", "obfuscate": true}', False);
+      '{"server":"' + ServerVal + '", "token":"' + TokenVal + '", "sni":"' + SNIVal + '", "obfuscate": true}', False);
 
     // Create new install marker for GUI
     SaveStringToFile('C:\ProgramData\SloPN\.new_install', '', False);
