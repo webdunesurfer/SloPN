@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	GUIVersion = "0.9.0"
+	GUIVersion = "0.9.1"
 	Service    = "com.webdunesurfer.slopn"
 	Account    = "auth_token"
 )
@@ -62,6 +62,8 @@ type UserSettings struct {
 
 // SaveConfig persists settings to disk and token to Keyring
 func (a *App) SaveConfig(server, token, sni string, full, obfs bool) {
+	server = strings.TrimSpace(server)
+	sni = strings.TrimSpace(sni)
 	// 1. Save sensitive token to system Keyring
 	if token != "" {
 		err := keyring.Set(Service, Account, token)
@@ -215,6 +217,8 @@ func (a *App) callHelper(req ipc.Request) (*ipc.Response, error) {
 
 // Connect starts the VPN
 func (a *App) Connect(server, token, sni string, full, obfs bool) string {
+	server = strings.TrimSpace(server)
+	sni = strings.TrimSpace(sni)
 	fmt.Printf("[v%s] [GUI] Connect requested for %s (SNI: %s, Obfs: %v)\n", GUIVersion, server, sni, obfs)
 	_, err := a.callHelper(ipc.Request{
 		Command:    ipc.CmdConnect,

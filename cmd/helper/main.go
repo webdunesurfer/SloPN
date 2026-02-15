@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.9.0"
+	HelperVersion = "0.9.1"
 )
 
 type Helper struct {
@@ -239,6 +239,8 @@ func (h *Helper) connect(addr, token, sni string, full, obfs bool) error {
 		h.mu.Unlock()
 		return fmt.Errorf("already %s", h.state)
 	}
+	addr = strings.TrimSpace(addr)
+	sni = strings.TrimSpace(sni)
 	h.state = "connecting"
 	h.serverAddr = addr
 	h.sni = sni
@@ -271,6 +273,9 @@ func getLocalIP() string {
 func (h *Helper) vpnLoop(ctx context.Context, addr, token, sni string, full, obfs bool) {
 	h.vpnWG.Add(1)
 	defer h.vpnWG.Done()
+	
+	addr = strings.TrimSpace(addr)
+	sni = strings.TrimSpace(sni)
 	
 	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s (SNI: %s, Obfs: %v)", addr, sni, obfs))
 	
