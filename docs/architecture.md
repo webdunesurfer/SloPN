@@ -4,13 +4,14 @@ SloPN (Slow Private Network) is a modular, high-security Layer 3 VPN built with 
 
 ## Core Protocols
 - **QUIC (RFC 9000):** Primary transport for control and data. It provides the reliability of TCP for signaling and the performance of UDP for tunneling.
-- **Obfuscation Layer (Optional):** A "UDP Wrapper" that XOR-masks packet headers using a Shared Transport Secret to evade DPI fingerprinting.
+- **Reality Transport (Stealth Mode):** An advanced obfuscation layer that mimics legitimate TLS/QUIC traffic (e.g., Microsoft or Google services). It uses a pre-handshake authentication mechanism and provides "Full Proxy" mirroring for unauthorized probes to evade active detection and DPI fingerprinting.
 - **TLS 1.3:** Built into QUIC, ensuring all traffic is encrypted and authenticated by default.
 - **Layer 3 (IP):** The VPN tunnels raw IPv4 packets over QUIC Datagrams (RFC 9221).
 
 ## Data Flow
-1. **Control Plane:** A reliable QUIC stream is used for the authenticated Login handshake (JSON-based).
-2. **Data Plane:** Once authenticated, raw IP packets are intercepted by a virtual TUN interface, wrapped in unreliable QUIC Datagrams, and forwarded to the peer.
+1. **Stealth Gatekeeper:** If Reality transport is enabled, the server performs a pre-handshake validation. Authorized clients provide a cryptographically signed Magic Header. Unauthorized probes are transparently proxied to the configured mimic target.
+2. **Control Plane:** Once past the gatekeeper, a reliable QUIC stream is used for the authenticated Login handshake (JSON-based).
+3. **Data Plane:** Raw IP packets are intercepted by a virtual TUN interface, wrapped in unreliable QUIC Datagrams, and forwarded to the peer.
 3. **Server Routing:** The server acts as a hub, using a Session Manager to route packets between clients or NATing them to the public internet.
 
 ## DNS Architecture

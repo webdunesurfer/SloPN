@@ -1,6 +1,6 @@
 # SloPN: QUIC-based Layer 3 VPN
 
-SloPN (Slow Private Network) is a modular, high-security VPN built with Go and QUIC. It utilizes RFC 9221 Datagrams to provide a robust tunneling experience that avoids the "TCP-over-TCP" meltdown common in older VPN protocols, while its integrated **Stealth Mode** provides protocol obfuscation to remain invisible to Deep Packet Inspection (DPI) systems.
+SloPN (Slow Private Network) is a modular, high-security VPN built with Go and QUIC. It utilizes RFC 9221 Datagrams to provide a robust tunneling experience that avoids the "TCP-over-TCP" meltdown common in older VPN protocols, while its integrated **Reality-style Stealth Mode** provides advanced protocol mimicry and "Full Proxy" mirroring to remain invisible to Deep Packet Inspection (DPI) systems.
 
 ## 📖 Documentation Hub
 
@@ -28,7 +28,7 @@ For detailed information on various aspects of the project, please refer to the 
 ### ⊞ Windows
 1. Download `SLoPN-Win10+11-Setup.exe` from the [Latest Release](https://github.com/webdunesurfer/SloPN/releases).
 2. Run the installer (requires Administrator privileges for driver and service setup).
-3. Enter your Server Address and Token during the installation wizard.
+3. Enter your Server Address, Token, and **Mimic Target (SNI)** during the installation wizard.
 4. Launch **SloPN** from your desktop or Start menu.
 
 #### 💡 Troubleshooting: Blank/White Window on Windows
@@ -53,7 +53,7 @@ slopn-cli status
 slopn-cli connect
 
 # Connect with manual flags (overrides config)
-slopn-cli connect -server 1.2.3.4:4242 -token your-token -full
+slopn-cli connect -server 1.2.3.4:4242 -token your-token -sni v10.events.data.microsoft.com -full
 
 # Disconnect
 slopn-cli disconnect
@@ -100,6 +100,7 @@ docker run -d \
   --device=/dev/net/tun:/dev/net/tun \
   -p 4242:4242/udp \
   -e SLOPN_TOKEN=your-secret-token \
+  -e SLOPN_MIMIC=v10.events.data.microsoft.com:443 \
   slopn-server -nat
 
 # Start DNS Server (Binding to Docker bridge IP)
