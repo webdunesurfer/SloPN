@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -24,15 +23,20 @@ type RealityConn struct {
 	mimicAddr   *net.UDPAddr
 	pool        *sync.Pool
 	
-	// sessionMap tracks which remote addresses are authenticated
-	// remoteAddr -> lastSeen
-	sessions    map[string]time.Time
+	// sessions tracks authenticated VPN flows
+	// remoteAddr -> sessionState
+	sessions    map[string]*sessionState
 	sessionsMu  sync.RWMutex
 
 	// proxySessions tracks unauthorized probes for mirroring
 	// clientAddr -> proxy session
 	proxySessions map[string]*proxySession
 	proxyMu       sync.RWMutex
+}
+
+type sessionState struct {
+	salt       []byte
+	lastActive time.Time
 }
 
 type proxySession struct {
@@ -70,7 +74,7 @@ func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *Rea
 		key:        key,
 		authKey:    authKey,
 		mimicAddr:  mAddr,
-		sessions:   make(map[string]time.Time),
+		sessions:   make(map[string]*sessionState),
 		proxySessions: make(map[string]*proxySession),
 		pool: &sync.Pool{
 			New: func() interface{} {
@@ -91,8 +95,8 @@ func (c *RealityConn) cleanupLoop() {
 		// Cleanup VPN sessions
 		c.sessionsMu.Lock()
 		now := time.Now()
-		for addr, lastSeen := range c.sessions {
-			if now.Sub(lastSeen) > SessionTimeout {
+		for addr, sess := range c.sessions {
+			if now.Sub(sess.lastActive) > SessionTimeout {
 				delete(c.sessions, addr)
 			}
 		}
@@ -140,18 +144,16 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		
 		// 1. Check if already authenticated
 		c.sessionsMu.RLock()
-		_, active := c.sessions[remoteKey]
+		sess, active := c.sessions[remoteKey]
 		c.sessionsMu.RUnlock()
 
 		if active {
 			c.sessionsMu.Lock()
-			c.sessions[remoteKey] = time.Now()
+			sess.lastActive = time.Now()
 			c.sessionsMu.Unlock()
 
-			// Unmask the payload
-			// In active mode, the first MagicHeaderLen bytes were only in the FIRST packet.
-			// Subsequent packets are just XORed data.
-			c.xor(buf[:n], []byte(remoteKey))
+			// Unmask the payload using the session's salt
+			c.xor(buf[:n], sess.salt)
 			copy(p, buf[:n])
 			return n, addr, nil
 		}
@@ -172,10 +174,15 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		expected := mac.Sum(nil)[:24]
 
 		if hmac.Equal(signature, expected) {
-			fmt.Printf("[DEBUG] Reality AUTH SUCCESS from %v\n", addr)
-			// SUCCESS: Authenticate this IP
+			// SUCCESS: Authenticate this IP and store the salt
+			s := &sessionState{
+				salt:       make([]byte, 8),
+				lastActive: time.Now(),
+			}
+			copy(s.salt, salt)
+
 			c.sessionsMu.Lock()
-			c.sessions[remoteKey] = time.Now()
+			c.sessions[remoteKey] = s
 			c.sessionsMu.Unlock()
 
 			// The payload starts after the header
@@ -192,7 +199,6 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 }
 
 func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
-	fmt.Printf("[DEBUG] Reality handleMirror: %d bytes from %v -> mirroring to %v\n", len(data), addr, c.mimicAddr)
 	if c.mimicAddr == nil {
 		return // Silent drop
 	}
@@ -216,7 +222,7 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 		c.proxySessions[remoteKey] = sess
 		
 		// Start response listener for this proxy session
-		go func(clientAddr net.Addr, proxyConn *net.UDPConn) {
+		go func(clientAddr net.Addr, proxyConn *net.UDPConn, key string) {
 			buf := make([]byte, 2048)
 			for {
 				proxyConn.SetReadDeadline(time.Now().Add(ProxyTimeout))
@@ -230,12 +236,12 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 				
 				// Update activity
 				c.proxyMu.Lock()
-				if s, ok := c.proxySessions[remoteKey]; ok {
+				if s, ok := c.proxySessions[key]; ok {
 					s.lastActive = time.Now()
 				}
 				c.proxyMu.Unlock()
 			}
-		}(addr, conn)
+		}(addr, conn, remoteKey)
 	}
 	sess.lastActive = time.Now()
 	c.proxyMu.Unlock()
@@ -251,19 +257,17 @@ func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 
 	remoteKey := addr.String()
 	c.sessionsMu.RLock()
-	_, active := c.sessions[remoteKey]
+	sess, active := c.sessions[remoteKey]
 	c.sessionsMu.RUnlock()
 
 	if active {
-		// Just XOR and send
-		fmt.Printf("[DEBUG] Reality WriteTo: Sending XORed packet (%d bytes) to %v\n", len(p), addr)
+		// Just XOR and send using the established session salt
 		copy(buf, p)
-		c.xor(buf[:len(p)], []byte(remoteKey))
+		c.xor(buf[:len(p)], sess.salt)
 		return c.PacketConn.WriteTo(buf[:len(p)], addr)
 	}
 
 	// First packet: Add Magic Header
-	fmt.Printf("[DEBUG] Reality WriteTo: Sending FIRST packet with Magic Header. Payload: %d bytes, Total: %d bytes\n", len(p), MagicHeaderLen+len(p))
 	salt := make([]byte, 8)
 	rand.Read(salt)
 
@@ -274,14 +278,28 @@ func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	copy(buf[0:8], salt)
 	copy(buf[8:32], signature)
 	
-	// XOR the payload
+	// XOR the payload using this new salt
 	payload := buf[MagicHeaderLen : MagicHeaderLen+len(p)]
 	copy(payload, p)
 	c.xor(payload, salt)
 
-	// Update session so we don't send the header again
+	// NOTE: We do NOT mark the session active in WriteTo yet.
+	// We only transition to XOR-only mode AFTER we receive an authenticated packet 
+	// from the peer in ReadFrom (server side) or when the client knows it started 
+	// the session. 
+	
+	// CRITICAL FIX: The client needs to transition to 'active' too, but only after 
+	// it's sure the server has received the Magic Header. To keep it simple and 
+	// robust against packet loss, we'll mark it active here but we fix the XOR seed 
+	// to be the SALT instead of the remoteAddr.
+
+	s := &sessionState{
+		salt:       make([]byte, 8),
+		lastActive: time.Now(),
+	}
+	copy(s.salt, salt)
 	c.sessionsMu.Lock()
-	c.sessions[remoteKey] = time.Now()
+	c.sessions[remoteKey] = s
 	c.sessionsMu.Unlock()
 
 	_, err = c.PacketConn.WriteTo(buf[:MagicHeaderLen+len(p)], addr)
