@@ -56,7 +56,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v21"
+const ServerVersion = "0.9.5-diag-v22"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -150,7 +150,7 @@ func main() {
 	if err != nil { log.Fatal(err) }
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v21 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v22 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
@@ -200,17 +200,30 @@ func main() {
 						csMu.Lock()
 						firstSeen, seen := state.seenSeqs[seq]
 						if seen {
-							// If >2 seconds since first seen, likely a replay attack
-							if time.Since(firstSeen) > 2*time.Second {
+							// If we see the SAME sequence ID within 10 seconds, it's a replay.
+							// If it's been > 10 seconds, assume it's a new test run reusing IDs.
+							if time.Since(firstSeen) < 10*time.Second {
 								replay = " [DPI REPLAY ATTACK]"
 							} else {
-								replay = " [RETRANS]"
+								// Old ID from previous test run, update timestamp
+								state.seenSeqs[seq] = time.Now()
 							}
 						} else {
 							state.seenSeqs[seq] = time.Now()
 						}
-						// Cleanup old seqs
-						if len(state.seenSeqs) > 1000 { state.seenSeqs = make(map[string]time.Time) }
+						
+						// Memory management: purge old entries every 50 packets
+						if len(state.seenSeqs) > 2000 {
+							newState := make(map[string]time.Time)
+							now := time.Now()
+							for k, v := range state.seenSeqs {
+								if now.Sub(v) < 30*time.Second {
+									newState[k] = v
+								}
+							}
+							state.seenSeqs = newState
+						}
+						
 						csMu.Unlock()
 
 						receivedCRC := binary.BigEndian.Uint32(data[len(data)-4:])

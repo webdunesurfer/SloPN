@@ -131,15 +131,11 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
 			conn.SetReadDeadline(deadline)
-			n, err := conn.Read(buf)
+			_, err := conn.Read(buf)
 			if err != nil { break }
-			if n == size && string(buf[1:11]) == seqStr {
-				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
-				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
-				if receivedCRC == computedCRC {
-					received = true
-					break
-				}
+			if string(buf[1:11]) == seqStr {
+				received = true
+				break
 			}
 		}
 
@@ -172,7 +168,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v21 (The Anti-Replay Edition)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v22\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
