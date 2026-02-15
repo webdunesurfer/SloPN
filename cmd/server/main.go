@@ -60,7 +60,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v2"
+const ServerVersion = "0.9.5-diag-v3"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -201,21 +201,36 @@ func main() {
 	var finalConn net.PacketConn = udpConn
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE ENABLED on :%d. Server will echo all packets.\n", *port)
-		go func() {
+		fmt.Printf("DIAGNOSTIC MODE ENABLED on :%d.\n", *port)
+		
+		// Start a real QUIC listener for handshake testing
+		tlsConfig, _ := certutil.GenerateSelfSignedConfig()
+		tlsConfig.NextProtos = []string{"h3", "slopn-protocol", "http/1.1"}
+		
+		quicConfig := &quic.Config{EnableDatagrams: true}
+		listener, _ := quic.Listen(udpConn, tlsConfig, quicConfig)
+
+		fmt.Println("Listening for Handshakes and Echo probes...")
+		
+		for {
+			// We use a raw buffer to peek at packets before QUIC handles them
 			buf := make([]byte, 2048)
-			for {
-				n, addr, err := udpConn.ReadFrom(buf)
-				if err != nil {
-					return
-				}
-				fmt.Printf("[DIAG] RECV: %d bytes from %v\n", n, addr)
-				// Echo back
+			n, addr, err := udpConn.ReadFrom(buf)
+			if err != nil {
+				continue
+			}
+
+			// Print hex dump of first 16 bytes
+			limit := n
+			if limit > 16 { limit = 16 }
+			fmt.Printf("[DIAG] RECV %d bytes from %v | Hex: %x\n", n, addr, buf[:limit])
+
+			// If it looks like a probe (not QUIC), echo it back
+			// QUIC packets start with 0x40 or higher, our probes are ASCII
+			if n > 0 && buf[0] < 0x40 {
 				udpConn.WriteTo(buf[:n], addr)
 			}
-		}()
-		// Keep main alive
-		select {}
+		}
 	}
 
 	if *obfs {
