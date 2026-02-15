@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -56,13 +55,7 @@ func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *Rea
 
 	var mAddr *net.UDPAddr
 	if mimicTarget != "" {
-		var err error
-		mAddr, err = net.ResolveUDPAddr("udp", mimicTarget)
-		if err != nil {
-			fmt.Printf("[ERROR] Reality failed to resolve mimic target '%s': %v\n", mimicTarget, err)
-		} else {
-			fmt.Printf("[DEBUG] Reality mirroring initialized: %s -> %v\n", mimicTarget, mAddr)
-		}
+		mAddr, _ = net.ResolveUDPAddr("udp", mimicTarget)
 	}
 
 	rc := &RealityConn{
@@ -144,9 +137,7 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		}
 
 		if n < MagicHeaderLen {
-			// If it's a tiny packet (like our echo test), respond immediately
 			if n > 0 && n < 64 {
-				fmt.Printf("[DEBUG] Reality Gatekeeper: Received small probe (%d bytes) from %v - echo back\n", n, addr)
 				c.PacketConn.WriteTo(buf[:n], addr)
 				continue
 			}
@@ -188,10 +179,8 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 	c.proxyMu.Lock()
 	sess, exists := c.proxySessions[remoteKey]
 	if !exists {
-		fmt.Printf("[DEBUG] Creating new proxy session for %v -> %v\n", addr, c.mimicAddr)
 		conn, err := net.DialUDP("udp", nil, c.mimicAddr)
 		if err != nil {
-			fmt.Printf("[DEBUG] Failed to dial mimic target: %v\n", err)
 			c.proxyMu.Unlock()
 			return
 		}
@@ -206,7 +195,6 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 				if err != nil {
 					return
 				}
-				fmt.Printf("[DEBUG] Proxy received %d bytes from mimic, forwarding to %v\n", n, clientAddr)
 				c.PacketConn.WriteTo(buf[:n], clientAddr)
 				c.proxyMu.Lock()
 				if s, ok := c.proxySessions[key]; ok {
@@ -219,10 +207,7 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 	sess.lastActive = time.Now()
 	c.proxyMu.Unlock()
 	
-	_, err := sess.conn.Write(data)
-	if err != nil {
-		fmt.Printf("[DEBUG] Failed to write to mimic: %v\n", err)
-	}
+	sess.conn.Write(data)
 }
 
 func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
