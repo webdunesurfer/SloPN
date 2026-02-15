@@ -43,7 +43,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.5-diag")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.5-diag-v7")
 # Force IPv4
 PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
