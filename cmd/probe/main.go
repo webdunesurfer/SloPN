@@ -46,7 +46,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 	logTest(name, fmt.Sprintf("Starting %s (%d bytes, %d probes)...", label, size, iterations))
 
 	for i := 1; i <= iterations; i++ {
-		drain(conn) // CRITICAL: Fix for Austria/Windows false negatives
+		drain(conn)
 		
 		payload := make([]byte, size)
 		if size > 32 { rand.Read(payload[32:]) }
@@ -131,11 +131,15 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
 			conn.SetReadDeadline(deadline)
-			_, err := conn.Read(buf)
+			n, err := conn.Read(buf)
 			if err != nil { break }
-			if string(buf[1:11]) == seqStr {
-				received = true
-				break
+			if n == size && string(buf[1:11]) == seqStr {
+				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+				if receivedCRC == computedCRC {
+					received = true
+					break
+				}
 			}
 		}
 
@@ -168,7 +172,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v19 (The Resync Edition)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v20 (The Anti-Replay Edition)\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
