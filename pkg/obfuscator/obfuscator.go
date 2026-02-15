@@ -198,3 +198,18 @@ func (c *RealityConn) SetDeadline(t time.Time) error      { return c.PacketConn.
 func (c *RealityConn) SetReadDeadline(t time.Time) error  { return c.PacketConn.SetReadDeadline(t) }
 func (c *RealityConn) SetWriteDeadline(t time.Time) error { return c.PacketConn.SetWriteDeadline(t) }
 func (c *RealityConn) Close() error                       { return c.PacketConn.Close() }
+
+// Buffer optimizations for quic-go
+func (c *RealityConn) SetReadBuffer(bytes int) error {
+	if u, ok := c.PacketConn.(interface{ SetReadBuffer(int) error }); ok {
+		return u.SetReadBuffer(bytes)
+	}
+	return nil
+}
+
+func (c *RealityConn) SetWriteBuffer(bytes int) error {
+	if u, ok := c.PacketConn.(interface{ SetWriteBuffer(int) error }); ok {
+		return u.SetWriteBuffer(bytes)
+	}
+	return nil
+}
