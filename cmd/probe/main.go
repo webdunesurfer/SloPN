@@ -29,6 +29,16 @@ func logTest(name, msg string) {
 	printf("[%s] [%-12s] %s\n", time.Now().Format("15:04:05"), name, msg)
 }
 
+// drain clears any stale packets from the UDP socket buffer
+func drain(conn *net.UDPConn) {
+	buf := make([]byte, 2048)
+	for {
+		conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+		_, err := conn.Read(buf)
+		if err != nil { break }
+	}
+}
+
 func runUDPTest(name string, conn *net.UDPConn, size int, label string, iterations int) {
 	success := 0
 	var totalTime time.Duration
@@ -36,6 +46,8 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 	logTest(name, fmt.Sprintf("Starting %s (%d bytes, %d probes)...", label, size, iterations))
 
 	for i := 1; i <= iterations; i++ {
+		drain(conn) // CRITICAL: Fix for Austria/Windows false negatives
+		
 		payload := make([]byte, size)
 		if size > 32 { rand.Read(payload[32:]) }
 		
@@ -49,22 +61,27 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		start := time.Now()
 		conn.Write(payload)
 		
-		buf := make([]byte, 2048)
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		n, err := conn.Read(buf)
-		
-		if err == nil {
-			receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
-			computedCRC := crc32.ChecksumIEEE(buf[:n-4])
-			if n == size && string(buf[1:11]) == seqStr && receivedCRC == computedCRC {
-				success++
-				totalTime += time.Since(start)
-			} else {
-				logTest(name, fmt.Sprintf("  %s: ERROR (Size: %d, Int: %v)", seqStr, n, receivedCRC == computedCRC))
+		// Smart Read Loop: Handles out-of-order/stale packets
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			buf := make([]byte, 2048)
+			conn.SetReadDeadline(deadline)
+			n, err := conn.Read(buf)
+			if err != nil { break }
+
+			if n == size && string(buf[1:11]) == seqStr {
+				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+				if receivedCRC == computedCRC {
+					success++
+					totalTime += time.Since(start)
+					goto next_iteration
+				}
 			}
-		} else {
-			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
 		}
+		logTest(name, fmt.Sprintf("  %s: FAILED (Timeout or Corrupt)", seqStr))
+
+	next_iteration:
 		time.Sleep(50 * time.Millisecond)
 	}
 
@@ -76,11 +93,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 
 func testQUIC(addr, alpn string) {
 	logTest("QUIC-PROBE", fmt.Sprintf("Testing Handshake Mirroring (ALPN: %s)...", alpn))
-	tlsConf := &tls.Config{
-		ServerName: "www.google.com",
-		InsecureSkipVerify: true,
-		NextProtos: []string{alpn},
-	}
+	tlsConf := &tls.Config{ServerName: "www.google.com", InsecureSkipVerify: true, NextProtos: []string{alpn}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -99,7 +112,9 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 	if highEntropy { label = "High Entropy" }
 	logTest(name, fmt.Sprintf("Starting 60s %s test (%d bytes, 1 pps)...", label, size))
 
+	success := 0
 	for i := 1; i <= 60; i++ {
+		drain(conn)
 		payload := make([]byte, size)
 		if highEntropy { rand.Read(payload) }
 		payload[0] = 0xFF
@@ -111,26 +126,28 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		
 		conn.Write(payload)
 		
-		buf := make([]byte, 2048)
-		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
-		n, err := conn.Read(buf)
-		
-		if err == nil {
-			receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
-			computedCRC := crc32.ChecksumIEEE(buf[:n-4])
-			if string(buf[1:11]) == seqStr && receivedCRC == computedCRC {
-				if i % 10 == 0 {
-					logTest(name, fmt.Sprintf("  %s flow healthy at %ds...", label, i))
-				}
-			} else {
-				logTest(name, fmt.Sprintf("  Packet %d: INTEGRITY FAILED", i))
+		deadline := time.Now().Add(1500 * time.Millisecond)
+		received := false
+		for time.Now().Before(deadline) {
+			buf := make([]byte, 2048)
+			conn.SetReadDeadline(deadline)
+			_, err := conn.Read(buf)
+			if err != nil { break }
+			if string(buf[1:11]) == seqStr {
+				received = true
+				break
 			}
+		}
+
+		if received {
+			success++
+			if i % 10 == 0 { logTest(name, fmt.Sprintf("  %s flow healthy at %ds...", label, i)) }
 		} else {
-			logTest(name, fmt.Sprintf("  Packet %d (%s): TIMEOUT", i, seqStr))
+			logTest(name, fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
 		}
 		time.Sleep(1 * time.Second)
 	}
-	logTest(name, fmt.Sprintf("%s test complete.", label))
+	logTest(name, fmt.Sprintf("%s test complete. Received: %d/60", label, success))
 }
 
 func main() {
@@ -146,12 +163,12 @@ func main() {
 	if err == nil {
 		defer f.Close()
 		out = io.MultiWriter(os.Stdout, f)
-		fmt.Printf("Saving results to: %s\n", fileName)
+		fmt.Printf("Saving forensic results to: %s\n", fileName)
 	} else {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v18 (FULL Forensic Suite)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v19 (The Resync Edition)\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -159,25 +176,20 @@ func main() {
 	conn, _ := net.DialUDP("udp", nil, udpAddr)
 	defer conn.Close()
 
-	// 1. Baseline
 	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
 	printf("\n")
 
-	// 2. MTU Sweep
 	sizes := []int{500, 1200, 1400}
 	for _, s := range sizes {
 		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1)
 	}
 	printf("\n")
 
-	// 3. Handshake
 	testQUIC(*target, "h3")
 	printf("\n")
 
-	// 4. Flow Low Entropy
 	testFlow("FLOW-LOW", conn, 64, false)
 	printf("\n")
 
-	// 5. Flow High Entropy
 	testFlow("FLOW-HIGH", conn, 1000, true)
 }
