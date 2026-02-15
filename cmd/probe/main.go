@@ -168,7 +168,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.6 (Production Release)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v23\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
