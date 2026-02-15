@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -171,6 +172,7 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		expected := mac.Sum(nil)[:24]
 
 		if hmac.Equal(signature, expected) {
+			fmt.Printf("[DEBUG] Reality AUTH SUCCESS from %v\n", addr)
 			// SUCCESS: Authenticate this IP
 			c.sessionsMu.Lock()
 			c.sessions[remoteKey] = time.Now()
@@ -190,6 +192,7 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 }
 
 func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
+	fmt.Printf("[DEBUG] Reality handleMirror: %d bytes from %v -> mirroring to %v\n", len(data), addr, c.mimicAddr)
 	if c.mimicAddr == nil {
 		return // Silent drop
 	}
@@ -253,12 +256,14 @@ func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 
 	if active {
 		// Just XOR and send
+		fmt.Printf("[DEBUG] Reality WriteTo: Sending XORed packet (%d bytes) to %v\n", len(p), addr)
 		copy(buf, p)
 		c.xor(buf[:len(p)], []byte(remoteKey))
 		return c.PacketConn.WriteTo(buf[:len(p)], addr)
 	}
 
 	// First packet: Add Magic Header
+	fmt.Printf("[DEBUG] Reality WriteTo: Sending FIRST packet with Magic Header. Payload: %d bytes, Total: %d bytes\n", len(p), MagicHeaderLen+len(p))
 	salt := make([]byte, 8)
 	rand.Read(salt)
 

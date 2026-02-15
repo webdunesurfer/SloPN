@@ -57,10 +57,11 @@ type UserSettings struct {
 	Server     string `json:"server"`
 	FullTunnel bool   `json:"full_tunnel"`
 	Obfuscate  bool   `json:"obfuscate"`
+	SNI        string `json:"sni"`
 }
 
 // SaveConfig persists settings to disk and token to Keyring
-func (a *App) SaveConfig(server, token string, full, obfs bool) {
+func (a *App) SaveConfig(server, token, sni string, full, obfs bool) {
 	// 1. Save sensitive token to system Keyring
 	if token != "" {
 		err := keyring.Set(Service, Account, token)
@@ -79,10 +80,10 @@ func (a *App) SaveConfig(server, token string, full, obfs bool) {
 	configDir := getConfigDir()
 	os.MkdirAll(configDir, 0755)
 	
-	settings := UserSettings{Server: server, FullTunnel: full, Obfuscate: obfs}
+	settings := UserSettings{Server: server, FullTunnel: full, Obfuscate: obfs, SNI: sni}
 	data, _ := json.Marshal(settings)
 	os.WriteFile(filepath.Join(configDir, "settings.json"), data, 0644)
-	fmt.Printf("[v%s] [GUI] Config (Server: %s, Full: %v, Obfs: %v) saved to Library\n", GUIVersion, server, full, obfs)
+	fmt.Printf("[v%s] [GUI] Config (Server: %s, Full: %v, Obfs: %v, SNI: %s) saved to Library\n", GUIVersion, server, full, obfs, sni)
 }
 
 // GetSavedConfig retrieves settings and secure token
@@ -98,6 +99,7 @@ func (a *App) GetSavedConfig() map[string]interface{} {
 			res["server"] = settings.Server
 			res["full_tunnel"] = settings.FullTunnel
 			res["obfuscate"] = settings.Obfuscate
+			res["sni"] = settings.SNI
 		}
 	}
 
@@ -147,6 +149,7 @@ type InitialConfig struct {
 	Server    string `json:"server"`
 	Token     string `json:"token"`
 	Obfuscate interface{} `json:"obfuscate"` // Handle both bool and string
+	SNI       string `json:"sni"`
 }
 
 // GetInitialConfig reads the config file created by the installer
@@ -211,12 +214,13 @@ func (a *App) callHelper(req ipc.Request) (*ipc.Response, error) {
 }
 
 // Connect starts the VPN
-func (a *App) Connect(server, token string, full, obfs bool) string {
-	fmt.Printf("[v%s] [GUI] Connect requested for %s (Obfs: %v)\n", GUIVersion, server, obfs)
+func (a *App) Connect(server, token, sni string, full, obfs bool) string {
+	fmt.Printf("[v%s] [GUI] Connect requested for %s (SNI: %s, Obfs: %v)\n", GUIVersion, server, sni, obfs)
 	_, err := a.callHelper(ipc.Request{
 		Command:    ipc.CmdConnect,
 		ServerAddr: server,
 		Token:      token,
+		SNI:        sni,
 		FullTunnel: full,
 		Obfuscate:  obfs,
 	})

@@ -5,6 +5,7 @@
 
   let server = "";
   let token = "";
+  let sni = "v10.events.data.microsoft.com";
   let fullTunnel = true;
   let obfuscate = true;
   let guiVersion = "0.7.3";
@@ -46,7 +47,7 @@
   }
 
   function handleConfigChange() {
-    SaveConfig(server, token, fullTunnel, obfuscate);
+    SaveConfig(server, token, sni, fullTunnel, obfuscate);
   }
   
   let status = { state: 'disconnected', helper_version: '---', server_version: '---' };
@@ -92,6 +93,7 @@
       
       server = initConfig.server || "";
       token = initConfig.token || "";
+      sni = initConfig.sni || "v10.events.data.microsoft.com";
       fullTunnel = true;
       obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true";
 
@@ -102,6 +104,7 @@
       const initConfig = await GetInitialConfig();
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
+      sni = initConfig.sni || saved.sni || "v10.events.data.microsoft.com";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
       obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true" || (saved.obfuscate !== undefined ? saved.obfuscate : true);
       handleConfigChange();
@@ -110,6 +113,7 @@
       console.log("[GUI] Loading existing user settings:", saved);
       if (saved.server) server = saved.server;
       if (saved.token) token = saved.token;
+      if (saved.sni) sni = saved.sni;
       if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
       if (saved.obfuscate !== undefined) obfuscate = saved.obfuscate;
     }
@@ -196,7 +200,7 @@
     errorMsg = "";
     try {
       if (status.state === 'disconnected') {
-        const res = await Connect(server, token, fullTunnel, obfuscate);
+        const res = await Connect(server, token, sni, fullTunnel, obfuscate);
         if (res !== "success") {
           showError(res);
         }
@@ -323,6 +327,10 @@
       <div class="input-group">
         <label for="server">Server Address</label>
         <input id="server" bind:value={server} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
+      </div>
+      <div class="input-group">
+        <label for="sni">SNI (DPI Mask)</label>
+        <input id="sni" bind:value={sni} on:blur={handleConfigChange} disabled={status.state !== 'disconnected'} />
       </div>
       <div class="input-group">
         <label for="token">Auth Token</label>
@@ -557,7 +565,7 @@
 
   .config-card { 
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 10px;
     margin-bottom: 10px;
     padding: 12px;
