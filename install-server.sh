@@ -3,8 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
-# Version: 0.8.4
-# Updated: 2026-02-15 18:45:00
+# Version: 0.8.5
+# Updated: 2026-02-15 18:50:00
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}====================================================${NC}"
 echo -e "${BLUE}          SloPN Server Installation Script          ${NC}"
-echo -e "${BLUE}                Version: 0.8.4                      ${NC}"
+echo -e "${BLUE}                Version: 0.8.5                      ${NC}"
 echo -e "${BLUE}====================================================${NC}"
 
 # 1. Dependency Check
@@ -47,8 +47,13 @@ VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || ech
 # Force IPv4
 PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
-echo -n "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: "
-read INPUT_MIMIC
+# Use /dev/tty to ensure 'read' works when script is piped from curl
+if [ -t 0 ]; then
+    read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " INPUT_MIMIC
+else
+    read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " INPUT_MIMIC < /dev/tty
+fi
+
 USER_MIMIC=${INPUT_MIMIC:-"v10.events.data.microsoft.com:443"}
 MIMIC_HOST=$(echo "$USER_MIMIC" | cut -d: -f1)
 
