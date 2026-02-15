@@ -52,7 +52,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		if size > 32 { rand.Read(payload[32:]) }
 		
 		payload[0] = 0xFF 
-		seqStr := fmt.Sprintf("%s-%06d", seqPrefix, i)
+		seqStr := fmt.Sprintf("%s-%06d", seqPrefix, i) // Ensure 10 chars
 		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
@@ -127,15 +127,15 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		conn.Write(payload)
 		
 		deadline := time.Now().Add(1500 * time.Millisecond)
-		received := false
 		var n int
+		received := false
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
 			conn.SetReadDeadline(deadline)
 			var err error
 			n, err = conn.Read(buf)
 			if err != nil { break }
-			if string(buf[1:11]) == seqStr {
+			if n == size && string(buf[1:11]) == seqStr {
 				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
 				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
 				if receivedCRC == computedCRC {
@@ -174,7 +174,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v24\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v25\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -186,10 +186,9 @@ func main() {
 	printf("\n")
 
 	sizes := []int{500, 1200, 1400}
-	for i, s := range sizes {
-		// Use distinct prefixes for MTU tests to avoid replay detection
-		prefix := fmt.Sprintf("M%d", i) 
-		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, prefix)
+	for _, s := range sizes {
+		// Use standard 3-char prefix to keep seqStr exactly 10 chars (MTU-000001)
+		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, "MTU")
 	}
 	printf("\n")
 

@@ -56,7 +56,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v24"
+const ServerVersion = "0.9.5-diag-v25"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -150,7 +150,7 @@ func main() {
 	if err != nil { log.Fatal(err) }
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v24 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v25 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
@@ -195,6 +195,8 @@ func main() {
 				if data[0] == 0xFF {
 					ptype = "PROBE"
 					if len(data) >= 16 {
+						// Relaxed parsing: Just take the first 10 chars as the ID
+						// This supports both SEQ-000001 and MTU-000001 formats
 						seq = string(data[1:11])
 						
 						csMu.Lock()
