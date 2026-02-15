@@ -51,7 +51,7 @@ var (
 	token     = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
 	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (Reality-style)")
-	mimic     = flag.String("mimic", getEnv("SLOPN_MIMIC", "194.163.160.234:443"), "Target server to mimic for unauthorized probes")
+	mimic     = flag.String("mimic", getEnv("SLOPN_MIMIC", "v10.events.data.microsoft.com:443"), "Target server to mimic for unauthorized probes")
 
 	// Rate Limiting Config
 	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")

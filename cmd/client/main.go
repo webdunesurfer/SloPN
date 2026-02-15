@@ -67,7 +67,7 @@ func main() {
 
 	// 1. Setup QUIC Client
 	if cfg.SNI == "" {
-		cfg.SNI = "194.163.160.234"
+		cfg.SNI = "v10.events.data.microsoft.com"
 	}
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,

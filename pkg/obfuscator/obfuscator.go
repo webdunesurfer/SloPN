@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -28,6 +27,16 @@ type RealityConn struct {
 	// remoteAddr -> lastSeen
 	sessions    map[string]time.Time
 	sessionsMu  sync.RWMutex
+
+	// proxySessions tracks unauthorized probes for mirroring
+	// clientAddr -> proxy session
+	proxySessions map[string]*proxySession
+	proxyMu       sync.RWMutex
+}
+
+type proxySession struct {
+	conn       *net.UDPConn
+	lastActive time.Time
 }
 
 const (
@@ -35,6 +44,7 @@ const (
 	// 8 bytes of random-looking salt + 24 bytes of HMAC-SHA256
 	MagicHeaderLen = 32
 	SessionTimeout = 5 * time.Minute
+	ProxyTimeout   = 2 * time.Minute
 )
 
 // NewRealityConn creates a new Reality-style connection wrapper.
@@ -60,6 +70,7 @@ func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *Rea
 		authKey:    authKey,
 		mimicAddr:  mAddr,
 		sessions:   make(map[string]time.Time),
+		proxySessions: make(map[string]*proxySession),
 		pool: &sync.Pool{
 			New: func() interface{} {
 				return make([]byte, 2048)
@@ -76,6 +87,7 @@ func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *Rea
 func (c *RealityConn) cleanupLoop() {
 	ticker := time.NewTicker(1 * time.Minute)
 	for range ticker.C {
+		// Cleanup VPN sessions
 		c.sessionsMu.Lock()
 		now := time.Now()
 		for addr, lastSeen := range c.sessions {
@@ -84,6 +96,16 @@ func (c *RealityConn) cleanupLoop() {
 			}
 		}
 		c.sessionsMu.Unlock()
+
+		// Cleanup proxy sessions
+		c.proxyMu.Lock()
+		for addr, sess := range c.proxySessions {
+			if now.Sub(sess.lastActive) > ProxyTimeout {
+				sess.conn.Close()
+				delete(c.proxySessions, addr)
+			}
+		}
+		c.proxyMu.Unlock()
 	}
 }
 
@@ -171,8 +193,52 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 	if c.mimicAddr == nil {
 		return // Silent drop
 	}
-	// In a real Reality implementation, we would proxy to the mimicTarget.
-	// For now, we silent drop to avoid revealing the VPN port.
+
+	remoteKey := addr.String()
+	
+	c.proxyMu.Lock()
+	sess, exists := c.proxySessions[remoteKey]
+	if !exists {
+		// Create new proxy connection
+		conn, err := net.DialUDP("udp", nil, c.mimicAddr)
+		if err != nil {
+			c.proxyMu.Unlock()
+			return
+		}
+
+		sess = &proxySession{
+			conn:       conn,
+			lastActive: time.Now(),
+		}
+		c.proxySessions[remoteKey] = sess
+		
+		// Start response listener for this proxy session
+		go func(clientAddr net.Addr, proxyConn *net.UDPConn) {
+			buf := make([]byte, 2048)
+			for {
+				proxyConn.SetReadDeadline(time.Now().Add(ProxyTimeout))
+				n, err := proxyConn.Read(buf)
+				if err != nil {
+					return // End of session
+				}
+
+				// Forward response back to the original client
+				c.PacketConn.WriteTo(buf[:n], clientAddr)
+				
+				// Update activity
+				c.proxyMu.Lock()
+				if s, ok := c.proxySessions[remoteKey]; ok {
+					s.lastActive = time.Now()
+				}
+				c.proxyMu.Unlock()
+			}
+		}(addr, conn)
+	}
+	sess.lastActive = time.Now()
+	c.proxyMu.Unlock()
+
+	// Forward the probe data to the mimic target
+	sess.conn.Write(data)
 }
 
 // WriteTo adds the Magic Header for the first packet of a session
