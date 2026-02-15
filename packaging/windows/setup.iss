@@ -1,5 +1,5 @@
 #define MyAppName "SloPN"
-#define MyAppVersion "0.8.1"
+#define MyAppVersion "0.8.2"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
 #define MyAppExeName "SloPN.exe"
