@@ -61,7 +61,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v6"
+const ServerVersion = "0.9.5-diag-v7"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -202,7 +202,7 @@ func main() {
 	var finalConn net.PacketConn = udpConn
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v5 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v7 ENABLED on :%d.\n", *port)
 		
 		for {
 			buf := make([]byte, 2048)

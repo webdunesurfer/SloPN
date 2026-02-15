@@ -3,8 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
-# Version: 0.9.5-diag-v6
-# Updated: 2026-02-15 22:30:00
+# Version: 0.9.5-diag-v7
+# Updated: 2026-02-15 22:45:00
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}====================================================${NC}"
 echo -e "${BLUE}          SloPN Server Installation Script          ${NC}"
-echo -e "${BLUE}                Version: 0.9.5-diag-v6              ${NC}"
+echo -e "${BLUE}                Version: 0.9.5-diag-v7              ${NC}"
 echo -e "${BLUE}====================================================${NC}"
 
 # 1. Dependency Check
