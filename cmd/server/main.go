@@ -58,7 +58,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v13"
+const ServerVersion = "0.9.5-diag-v14"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -172,7 +172,7 @@ func main() {
 	}
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v13 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v14 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex

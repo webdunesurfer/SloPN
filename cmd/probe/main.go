@@ -41,27 +41,31 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 			rand.Read(payload[32:])
 		}
 		
-		// Forensic Header: [Marker 0xFF] + [Sequence 11 bytes] + [CRC32 4 bytes at end]
 		payload[0] = 0xFF 
 		seqStr := fmt.Sprintf("SEQ-%06d", i)
 		copy(payload[1:12], []byte(seqStr))
 		
-		// Calculate CRC32 of everything except the last 4 bytes
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
 		binary.BigEndian.PutUint32(payload[size-4:], checksum)
 
 		start := time.Now()
-		conn.Write(payload)
+		_, err := conn.Write(payload)
+		if err != nil {
+			logTest(name, fmt.Sprintf("  %s: WRITE ERROR: %v", seqStr, err))
+			continue
+		}
 		
 		buf := make([]byte, 2048)
 		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		n, _, err := conn.ReadFromUDP(buf)
+		n, err := conn.Read(buf)
 		
 		if err == nil && n == size && string(buf[1:12]) == seqStr {
 			success++
 			totalTime += time.Since(start)
 		} else if err != nil {
 			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
+		} else {
+			logTest(name, fmt.Sprintf("  %s: CORRUPT (Size %d != %d)", seqStr, n, size))
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -110,7 +114,7 @@ func testFlow(name string, conn *net.UDPConn) {
 		
 		buf := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
-		_, _, err := conn.ReadFromUDP(buf)
+		_, err := conn.Read(buf)
 		
 		if err != nil {
 			logTest(name, fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
@@ -135,27 +139,28 @@ func main() {
 	if err == nil {
 		defer f.Close()
 		out = io.MultiWriter(os.Stdout, f)
-		fmt.Printf("Saving forensic results to: %s\n", fileName)
+		fmt.Printf("Saving results to: %s\n", fileName)
 	} else {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v13 (The Integrity Edition)\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v14\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
-	udpAddr, _ := net.ResolveUDPAddr("udp", *target)
-	conn, err := net.ListenUDP("udp", nil) // Single persistent socket
+	udpAddr, err := net.ResolveUDPAddr("udp", *target)
+	if err != nil {
+		logTest("ERROR", fmt.Sprintf("Failed to resolve target: %v", err))
+		return
+	}
+
+	// Single stable socket for the entire session
+	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
 		logTest("ERROR", fmt.Sprintf("Failed to create UDP socket: %v", err))
 		return
 	}
 	defer conn.Close()
-	
-	// Set remote address for convenience
-	// We can't use Connect() because we want to reuse this for QUIC tests later if needed
-	// But net.DialUDP creates a connected socket, which is what we want.
-	conn, _ = net.DialUDP("udp", nil, udpAddr)
 
 	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
 	printf("\n")
@@ -166,6 +171,7 @@ func main() {
 	}
 	printf("\n")
 
+	// QUIC test uses its own connection management internally but we run it sequentially
 	testQUIC(*target, "h3")
 	printf("\n")
 
