@@ -15,7 +15,7 @@ launchctl unload /Library/LaunchDaemons/com.webdunesurfer.slopn.helper.plist 2>/
 # Note: This runs as root, so we use 'as user' logic if needed, but standard dialog usually works.
 USER_SERVER=$(osascript -e 'display dialog "Enter SloPN Server Address (e.g. 1.2.3.4:4242):" default answer "" with title "SloPN Configuration" with icon note' -e 'text returned of result' 2>/dev/null)
 USER_TOKEN=$(osascript -e 'display dialog "Enter SloPN Auth Token:" default answer "" with title "SloPN Configuration" with icon note with hidden answer' -e 'text returned of result' 2>/dev/null)
-USER_SNI=$(osascript -e 'display dialog "Enter Mimic Target (SNI) [optional]:" default answer "v10.events.data.microsoft.com" with title "SloPN Configuration" with icon note' -e 'text returned of result' 2>/dev/null)
+USER_SNI=$(osascript -e 'display dialog "Enter Mimic Target (SNI) [optional]:" default answer "www.google.com" with title "SloPN Configuration" with icon note' -e 'text returned of result' 2>/dev/null)
 
 # Store these in a system-wide config if helper supports it, or just pass to GUI via a shared file
 # For now, we will create a global config file that both Helper and GUI can read.

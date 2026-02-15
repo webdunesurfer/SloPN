@@ -5,7 +5,7 @@
 
   let server = "";
   let token = "";
-  let sni = "v10.events.data.microsoft.com";
+  let sni = "www.google.com";
   let fullTunnel = true;
   let obfuscate = true;
   let guiVersion = "0.7.3";
@@ -93,7 +93,7 @@
       
       server = initConfig.server || "";
       token = initConfig.token || "";
-      sni = initConfig.sni || "v10.events.data.microsoft.com";
+      sni = initConfig.sni || "www.google.com";
       fullTunnel = true;
       obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true";
 
@@ -104,7 +104,7 @@
       const initConfig = await GetInitialConfig();
       server = initConfig.server || saved.server || "";
       token = initConfig.token || saved.token || "";
-      sni = initConfig.sni || saved.sni || "v10.events.data.microsoft.com";
+      sni = initConfig.sni || saved.sni || "www.google.com";
       fullTunnel = saved.full_tunnel !== undefined ? saved.full_tunnel : true;
       obfuscate = initConfig.obfuscate === true || initConfig.obfuscate === "true" || (saved.obfuscate !== undefined ? saved.obfuscate : true);
       handleConfigChange();
@@ -116,7 +116,7 @@
       if (saved.sni) {
         sni = saved.sni;
       } else {
-        sni = "v10.events.data.microsoft.com";
+        sni = "www.google.com";
       }
       if (saved.full_tunnel !== undefined) fullTunnel = saved.full_tunnel;
       if (saved.obfuscate !== undefined) obfuscate = saved.obfuscate;

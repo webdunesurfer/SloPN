@@ -1,5 +1,5 @@
 #define MyAppName "SloPN (Debug)"
-#define MyAppVersion "0.8.9"
+#define MyAppVersion "0.9.0"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
 #define MyAppExeName "SloPN.exe"
@@ -122,7 +122,7 @@ begin
   
   ConfigPage.Values[0] := '';
   ConfigPage.Values[1] := '';
-  ConfigPage.Values[2] := 'v10.events.data.microsoft.com';
+  ConfigPage.Values[2] := 'www.google.com';
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

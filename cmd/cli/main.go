@@ -142,7 +142,7 @@ func doConnect(srv, tok, sni string, full, obfs bool) {
 	if sni == "" {
 		sni = cfg.SNI
 		if sni == "" {
-			sni = "v10.events.data.microsoft.com"
+			sni = "www.google.com"
 		}
 	}
 	

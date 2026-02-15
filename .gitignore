@@ -4,6 +4,8 @@ config2.json
 
 # Build Artifacts
 check_mimic.go
+find_quic_target.go
+test_ping.go
 bin/
 /packaging/payload/
 *.exe

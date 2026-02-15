@@ -3,8 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
-# Version: 0.8.9
-# Updated: 2026-02-15 19:30:00
+# Version: 0.9.0
+# Updated: 2026-02-15 19:40:00
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}====================================================${NC}"
 echo -e "${BLUE}          SloPN Server Installation Script          ${NC}"
-echo -e "${BLUE}                Version: 0.8.9                      ${NC}"
+echo -e "${BLUE}                Version: 0.9.0                      ${NC}"
 echo -e "${BLUE}====================================================${NC}"
 
 # 1. Dependency Check
@@ -49,12 +49,12 @@ PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
 # Use /dev/tty to ensure 'read' works when script is piped from curl
 if [ -t 0 ]; then
-    read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " INPUT_MIMIC
+    read -p "Enter mimic target (SNI) [default: www.google.com:443]: " INPUT_MIMIC
 else
-    read -p "Enter mimic target (SNI) [default: v10.events.data.microsoft.com:443]: " INPUT_MIMIC < /dev/tty
+    read -p "Enter mimic target (SNI) [default: www.google.com:443]: " INPUT_MIMIC < /dev/tty
 fi
 
-USER_MIMIC=${INPUT_MIMIC:-"v10.events.data.microsoft.com:443"}
+USER_MIMIC=${INPUT_MIMIC:-"www.google.com:443"}
 MIMIC_HOST=$(echo "$USER_MIMIC" | cut -d: -f1)
 
 # 4. Build and Run Docker Containers
