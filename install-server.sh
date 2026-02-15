@@ -3,8 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
-# Version: 0.9.5-diag-v11
-# Updated: 2026-02-15 23:35:00
+# Version: 0.9.5-diag-v16
+# Updated: 2026-02-15 23:45:00
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}====================================================${NC}"
 echo -e "${BLUE}          SloPN Server Installation Script          ${NC}"
-echo -e "${BLUE}                Version: 0.9.5-diag-v15             ${NC}"
+echo -e "${BLUE}                Version: 0.9.5-diag-v16             ${NC}"
 echo -e "${BLUE}====================================================${NC}"
 
 # 1. Dependency Check
@@ -43,7 +43,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.5-diag-v15")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.5-diag-v16")
 # Force IPv4
 PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 

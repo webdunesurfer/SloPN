@@ -58,7 +58,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v15"
+const ServerVersion = "0.9.5-diag-v16"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -172,15 +172,26 @@ func main() {
 	}
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v14 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v16 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
+
+		// Track timing per client
+		lastSeenMap := make(map[string]time.Time)
+		var lsMu sync.Mutex
 
 		for {
 			buf := make([]byte, 2048)
 			n, addr, err := udpConn.ReadFrom(buf)
 			if err != nil { continue }
+
+			remoteKey := addr.String()
+			lsMu.Lock()
+			gap := time.Since(lastSeenMap[remoteKey])
+			if lastSeenMap[remoteKey].IsZero() { gap = 0 }
+			lastSeenMap[remoteKey] = time.Now()
+			lsMu.Unlock()
 
 			ptype := "RAW"
 			seq := "NONE"
@@ -189,7 +200,7 @@ func main() {
 			if n > 0 && buf[0] == 0xFF {
 				ptype = "PROBE"
 				if n >= 16 {
-					seq = string(buf[1:12])
+					seq = string(buf[1:11]) // 10 chars
 					receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
 					computedCRC := crc32.ChecksumIEEE(buf[:n-4])
 					if receivedCRC == computedCRC { integrity = "OK" } else { integrity = "CORRUPT" }
@@ -198,6 +209,23 @@ func main() {
 				ptype = "QUIC-LONG"
 			} else if n > 0 && (buf[0]&0x40) != 0 {
 				ptype = "QUIC-SHORT"
+			}
+
+			counts := make(map[byte]int)
+			for _, b := range buf[:n] { counts[b]++ }
+			var entropy float64
+			for _, count := range counts {
+				p := float64(count) / float64(n)
+				entropy -= p * math.Log2(p)
+			}
+
+			fmt.Printf("[DIAG] %-15v | Gap: %5dms | Size: %4d | ID: %-10s | Int: %-7s | Type: %-10s | Ent: %4.2f\n", 
+				addr, gap.Milliseconds(), n, seq, integrity, ptype, entropy)
+
+			if ptype == "PROBE" {
+				udpConn.WriteTo(buf[:n], addr)
+				fmt.Printf("[DIAG] -> ECHO SENT to %v\n", addr)
+			} else if mimicAddr != nil {
 			}
 
 			counts := make(map[byte]int)

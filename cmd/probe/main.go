@@ -37,13 +37,10 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 
 	for i := 1; i <= iterations; i++ {
 		payload := make([]byte, size)
-		if size > 32 {
-			rand.Read(payload[32:])
-		}
+		if size > 32 { rand.Read(payload[32:]) }
 		
-		// SloPN Forensic Header: [Marker 0xFF] + [Sequence 10 bytes] + [CRC32 4 bytes at end]
 		payload[0] = 0xFF 
-		seqStr := fmt.Sprintf("SEQ-%06d", i) // 10 chars
+		seqStr := fmt.Sprintf("SEQ-%06d", i)
 		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
@@ -57,11 +54,16 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		n, err := conn.Read(buf)
 		
 		if err == nil {
-			if n == size && string(buf[1:11]) == seqStr {
+			receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+			computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+			
+			if n == size && string(buf[1:11]) == seqStr && receivedCRC == computedCRC {
 				success++
 				totalTime += time.Since(start)
 			} else {
-				logTest(name, fmt.Sprintf("  %s: CONTENT MISMATCH (Exp: %s, Got: %s)", seqStr, seqStr, string(buf[1:11])))
+				integrity := "OK"
+				if receivedCRC != computedCRC { integrity = "CORRUPT" }
+				logTest(name, fmt.Sprintf("  %s: ERROR (Size: %d, Integrity: %s)", seqStr, n, integrity))
 			}
 		} else {
 			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
@@ -71,30 +73,8 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 
 	loss := float64(iterations-success) / float64(iterations) * 100
 	avg := time.Duration(0)
-	if success > 0 {
-		avg = totalTime / time.Duration(success)
-	}
+	if success > 0 { avg = totalTime / time.Duration(success) }
 	logTest(name, fmt.Sprintf("RESULT: %d/%d received | Loss: %.1f%% | Avg RTT: %v", success, iterations, loss, avg))
-}
-
-func testQUIC(addr, alpn string) {
-	logTest("QUIC-PROBE", fmt.Sprintf("Testing Handshake Mirroring (ALPN: %s)...", alpn))
-	tlsConf := &tls.Config{
-		ServerName:         "www.google.com",
-		InsecureSkipVerify: true,
-		NextProtos:         []string{alpn},
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	start := time.Now()
-	conn, err := quic.DialAddr(ctx, addr, tlsConf, nil)
-	if err != nil {
-		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
-		return
-	}
-	defer conn.CloseWithError(0, "")
-	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v", time.Since(start)))
 }
 
 func testFlow(name string, conn *net.UDPConn) {
@@ -113,15 +93,17 @@ func testFlow(name string, conn *net.UDPConn) {
 		
 		buf := make([]byte, 1024)
 		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
-		_, err := conn.Read(buf)
+		n, err := conn.Read(buf)
 		
 		if err == nil {
-			if string(buf[1:11]) == seqStr {
+			receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
+			computedCRC := crc32.ChecksumIEEE(buf[:n-4])
+			if string(buf[1:11]) == seqStr && receivedCRC == computedCRC {
 				if i % 10 == 0 {
 					logTest(name, fmt.Sprintf("  Flow healthy at %ds...", i))
 				}
 			} else {
-				logTest(name, fmt.Sprintf("  Packet %d: CONTENT MISMATCH", i))
+				logTest(name, fmt.Sprintf("  Packet %d: INTEGRITY FAILED", i))
 			}
 		} else {
 			logTest(name, fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
@@ -149,16 +131,12 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v15\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v16 (The Forensic Master Edition)\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
 	udpAddr, _ := net.ResolveUDPAddr("udp", *target)
-	conn, err := net.DialUDP("udp", nil, udpAddr)
-	if err != nil {
-		logTest("ERROR", fmt.Sprintf("Failed to create UDP socket: %v", err))
-		return
-	}
+	conn, _ := net.DialUDP("udp", nil, udpAddr)
 	defer conn.Close()
 
 	runUDPTest("BASELINE", conn, 64, "Forensic Ping", 5)
@@ -170,7 +148,18 @@ func main() {
 	}
 	printf("\n")
 
-	testQUIC(*target, "h3")
+	// QUIC Probe
+	logTest("QUIC-PROBE", "Testing Handshake Mirroring (ALPN: h3)...")
+	tlsConf := &tls.Config{ServerName: "www.google.com", InsecureSkipVerify: true, NextProtos: []string{"h3"}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	qconn, err := quic.DialAddr(ctx, *target, tlsConf, nil)
+	if err == nil {
+		logTest("QUIC-PROBE", "Handshake SUCCESS (Identity Mirroring OK)")
+		qconn.CloseWithError(0, "")
+	} else {
+		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
+	}
 	printf("\n")
 
 	testFlow("FLOW-TEST", conn)
