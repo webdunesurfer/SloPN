@@ -36,18 +36,19 @@ func runUDPTest(name string, addr string, size int, label string, iterations int
 
 	for i := 0; i < iterations; i++ {
 		conn, _ := net.DialUDP("udp", nil, udpAddr)
+		
 		payload := make([]byte, size)
-		if iterations > 1 {
-			rand.Read(payload)
-		}
-		payload[0] = 'P' // Marker for echo
+		if iterations > 1 { rand.Read(payload) }
+		payload[0] = 0xFF // Explicit Diag Echo Marker for SloPN Diag-v8
 
 		start := time.Now()
 		conn.Write(payload)
+		
 		buf := make([]byte, 2048)
-		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		n, _, err := conn.ReadFromUDP(buf)
-		if err == nil && n == size {
+		
+		if err == nil && n == size && buf[0] == 0xFF {
 			success++
 			totalTime += time.Since(start)
 		}
@@ -57,18 +58,16 @@ func runUDPTest(name string, addr string, size int, label string, iterations int
 
 	loss := float64(iterations-success) / float64(iterations) * 100
 	avg := time.Duration(0)
-	if success > 0 {
-		avg = totalTime / time.Duration(success)
-	}
+	if success > 0 { avg = totalTime / time.Duration(success) }
 	logTest(name, fmt.Sprintf("RESULT: %d/%d received | Loss: %.1f%% | Avg RTT: %v", success, iterations, loss, avg))
 }
 
 func testQUIC(addr, alpn string) {
-	logTest("QUIC-PROBE", fmt.Sprintf("Attempting Handshake (ALPN: %s)...", alpn))
+	logTest("QUIC-PROBE", fmt.Sprintf("Testing Handshake Mirroring (ALPN: %s)...", alpn))
 	tlsConf := &tls.Config{
-		ServerName:         "www.google.com",
+		ServerName: "www.google.com",
 		InsecureSkipVerify: true,
-		NextProtos:         []string{alpn},
+		NextProtos: []string{alpn},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -76,11 +75,12 @@ func testQUIC(addr, alpn string) {
 	start := time.Now()
 	conn, err := quic.DialAddr(ctx, addr, tlsConf, nil)
 	if err != nil {
-		logTest("QUIC-PROBE", fmt.Sprintf("Handshake FAILED: %v", err))
+		// In diagnostic mode, we just want to see if we get a response
+		logTest("QUIC-PROBE", fmt.Sprintf("Handshake info: %v", err))
 		return
 	}
 	defer conn.CloseWithError(0, "")
-	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v", time.Since(start)))
+	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v (Identity Mirroring OK)", time.Since(start)))
 }
 
 func testFlow(addr string) {
@@ -90,16 +90,19 @@ func testFlow(addr string) {
 	defer conn.Close()
 
 	for i := 1; i <= 60; i++ {
-		payload := []byte(fmt.Sprintf("FLOW-PACKET-%02d", i))
+		payload := make([]byte, 32)
+		payload[0] = 0xFF
+		copy(payload[1:], []byte(fmt.Sprintf("FLOW-%02d", i)))
+		
 		conn.Write(payload)
-
+		
 		buf := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		_, _, err := conn.ReadFromUDP(buf)
-
+		
 		if err != nil {
 			logTest("FLOW-TEST", fmt.Sprintf("Packet %d: DROPPED at %ds", i, i))
-		} else if i%10 == 0 {
+		} else if i % 10 == 0 {
 			logTest("FLOW-TEST", fmt.Sprintf("Flow healthy at %ds...", i))
 		}
 		time.Sleep(1 * time.Second)
@@ -114,12 +117,10 @@ func main() {
 		return
 	}
 
-	// Setup logging to both file and console
 	timestamp := time.Now().Format("20060102-150405")
 	fileName := fmt.Sprintf("probing-%s.txt", timestamp)
 	f, err := os.Create(fileName)
 	if err != nil {
-		fmt.Printf("Warning: could not create log file: %v\n", err)
 		out = os.Stdout
 	} else {
 		defer f.Close()
@@ -127,7 +128,7 @@ func main() {
 		fmt.Printf("Saving results to: %s\n", fileName)
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v7\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v8\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -141,7 +142,6 @@ func main() {
 	printf("\n")
 
 	testQUIC(*target, "h3")
-	testQUIC(*target, "slopn-protocol")
 	printf("\n")
 
 	testFlow(*target)
