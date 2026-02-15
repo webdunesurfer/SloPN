@@ -209,6 +209,7 @@ func main() {
 		
 		quicConfig := &quic.Config{EnableDatagrams: true}
 		listener, _ := quic.Listen(udpConn, tlsConfig, quicConfig)
+		_ = listener // Keep listener alive
 
 		fmt.Println("Listening for Handshakes and Echo probes...")
 		
