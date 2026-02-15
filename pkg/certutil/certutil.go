@@ -50,6 +50,7 @@ func GenerateSelfSignedConfig() (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{"slopn-protocol"},
-	}, nil
+				NextProtos: []string{"h3"},
+			}, nil
+		
 }

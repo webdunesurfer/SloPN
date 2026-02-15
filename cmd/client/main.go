@@ -72,7 +72,7 @@ func main() {
 	}
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
-		NextProtos:         []string{"slopn-protocol"},
+		NextProtos:         []string{"h3"},
 		ServerName:         cfg.SNI,
 	}
 
@@ -111,7 +111,7 @@ func main() {
 
 	json.NewEncoder(stream).Encode(protocol.LoginRequest{
 		Type: protocol.MessageTypeLoginRequest, Token: cfg.Token,
-		ClientVersion: "0.9.3", OS: runtime.GOOS,
+		ClientVersion: "0.9.4", OS: runtime.GOOS,
 	})
 
 	var loginResp protocol.LoginResponse
@@ -126,7 +126,7 @@ func main() {
 	// 3. Setup TUN
 	tunCfg := tunutil.Config{
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
-		Mask: "255.255.255.0", MTU: 1280,
+		Mask: "255.255.255.0", MTU: 900,
 		SkipSubnetRoute: cfg.HostRouteOnly,
 		NoRoute:         cfg.NoRoute,
 	}

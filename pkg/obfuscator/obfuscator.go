@@ -189,7 +189,17 @@ func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	copy(payload, p)
 	c.xor(payload, salt)
 
-	_, err = c.PacketConn.WriteTo(buf[:MagicHeaderLen+len(p)], addr)
+	// Add random padding (0-31 bytes) to break packet size signatures
+	padLen := int(salt[0] & 31)
+	totalLen := MagicHeaderLen + len(p) + padLen
+	if totalLen > len(buf) {
+		padLen = 0 // Safety check
+		totalLen = MagicHeaderLen + len(p)
+	} else {
+		rand.Read(buf[MagicHeaderLen+len(p) : totalLen])
+	}
+
+	_, err = c.PacketConn.WriteTo(buf[:totalLen], addr)
 	return len(p), err
 }
 
