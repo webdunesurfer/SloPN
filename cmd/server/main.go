@@ -214,6 +214,14 @@ func main() {
 			if err != nil { continue }
 
 			// 1. Labeling Fix
+			counts := make(map[byte]int)
+			for _, b := range buf[:n] { counts[b]++ }
+			var entropy float64
+			for _, count := range counts {
+				p := float64(count) / float64(n)
+				entropy -= p * math.Log2(p)
+			}
+
 			// 3. Log Deep Metrics with Sequence Parsing
 			ptype := "RAW"
 			seq := "NONE"
