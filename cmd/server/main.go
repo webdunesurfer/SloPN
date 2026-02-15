@@ -61,7 +61,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v10"
+const ServerVersion = "0.9.5-diag-v11"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -214,28 +214,26 @@ func main() {
 			if err != nil { continue }
 
 			// 1. Labeling Fix
+			// 3. Log Deep Metrics with Sequence Parsing
 			ptype := "RAW"
+			seq := "NONE"
 			if n > 0 && buf[0] == 0xFF {
 				ptype = "PROBE"
+				// Try to parse sequence ID (matches probe tool format)
+				if n >= 12 {
+					seq = string(buf[1:12]) // e.g. "SEQ-000001"
+				}
 			} else if n > 0 && (buf[0]&0x80) != 0 {
 				ptype = "QUIC-LONG"
 			} else if n > 0 && (buf[0]&0x40) != 0 {
 				ptype = "QUIC-SHORT"
 			}
 
-			// 2. Entropy
-			counts := make(map[byte]int)
-			for _, b := range buf[:n] { counts[b]++ }
-			var entropy float64
-			for _, count := range counts {
-				p := float64(count) / float64(n)
-				entropy -= p * math.Log2(p)
-			}
+			fmt.Printf("[DIAG] %-15v | Size: %4d | ID: %-10s | Type: %-10s | Ent: %4.2f\n", addr, n, seq, ptype, entropy)
 
-			fmt.Printf("[DIAG] %-15v | Size: %4d | Ent: %4.2f | Type: %-10s | Hex: %x\n", addr, n, entropy, ptype, buf[0:8])
-
-			// 3. Dispatch
+			// 4. Dispatch
 			if ptype == "PROBE" {
+				fmt.Printf("[DIAG] -> ECHOING %s back to %v\n", seq, addr)
 				udpConn.WriteTo(buf[:n], addr)
 			} else if mimicAddr != nil {
 				// Stable Proxy Logic for Diag
