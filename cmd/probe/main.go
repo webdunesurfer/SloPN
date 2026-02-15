@@ -1,124 +1,66 @@
 package main
 
 import (
-	"context"
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"math/rand"
 	"net"
 	"time"
-
-	"github.com/quic-go/quic-go"
 )
 
 var (
 	target = flag.String("addr", "", "Server address (e.g. 1.2.3.4:4242)")
 )
 
-func logDiag(tag, msg string) {
-	fmt.Printf("[%s] [%-10s] %s\n", time.Now().Format("15:04:05"), tag, msg)
+func logTest(name, msg string) {
+	fmt.Printf("[%s] [%-12s] %s\n", time.Now().Format("15:04:05"), name, msg)
 }
 
-func testBaseline(addr string) {
-	logDiag("BASE", "--- TEST A: UDP Connectivity & Jitter ---")
+func runUDPTest(name string, addr string, size int, label string, iterations int) {
 	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
-	
-	var latencies []time.Duration
-	for i := 1; i <= 5; i++ {
+	success := 0
+	var totalTime time.Duration
+
+	logTest(name, fmt.Sprintf("Starting %s (%d bytes, %d probes)...", label, size, iterations))
+
+	for i := 0; i < iterations; i++ {
 		conn, _ := net.DialUDP("udp", nil, udpAddr)
-		start := time.Now()
-		conn.Write([]byte(fmt.Sprintf("PING-%d", i)))
 		
-		buf := make([]byte, 1024)
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		_, _, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			logDiag("BASE", fmt.Sprintf("Probe %d: TIMEOUT", i))
-		} else {
-			d := time.Since(start)
-			latencies = append(latencies, d)
-			logDiag("BASE", fmt.Sprintf("Probe %d: OK (%v)", i, d))
+		payload := make([]byte, size)
+		if size > 10 {
+			copy(payload, []byte("PROBE"))
 		}
-		conn.Close()
-		time.Sleep(100 * time.Millisecond)
-	}
-}
+		if iterations > 1 {
+			// Add some randomness to each iteration to keep entropy high
+			rand.Read(payload[size/2:])
+		}
 
-func testMTU(addr string) {
-	logDiag("MTU", "--- TEST B: MTU Sweep ---")
-	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
-	sizes := []int{500, 1000, 1200, 1300, 1400, 1450}
-
-	for _, sz := range sizes {
-		conn, _ := net.DialUDP("udp", nil, udpAddr)
-		payload := make([]byte, sz)
-		copy(payload, []byte(fmt.Sprintf("MTU-%d", sz)))
-		
-		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		start := time.Now()
 		conn.Write(payload)
 		
 		buf := make([]byte, 2048)
-		_, _, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			logDiag("MTU", fmt.Sprintf("Size %4d bytes: [FAILED]", sz))
-		} else {
-			logDiag("MTU", fmt.Sprintf("Size %4d bytes: [SUCCESS]", sz))
+		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
+		n, _, err := conn.ReadFromUDP(buf)
+		
+		if err == nil && n == size {
+			success++
+			totalTime += time.Since(start)
 		}
 		conn.Close()
-	}
-}
-
-func testEntropy(addr string) {
-	logDiag("ENTROPY", "--- TEST C: High vs Low Entropy ---")
-	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
-
-	// Low Entropy (Zeros)
-	conn1, _ := net.DialUDP("udp", nil, udpAddr)
-	lowPayload := make([]byte, 800)
-	start1 := time.Now()
-	conn1.Write(lowPayload)
-	conn1.SetReadDeadline(time.Now().Add(2 * time.Second))
-	_, _, err1 := conn1.ReadFromUDP(make([]byte, 1024))
-	logDiag("ENTROPY", fmt.Sprintf("Low Entropy (800b Zeros):  %v", err1 == nil))
-	conn1.Close()
-
-	// High Entropy (Random)
-	conn2, _ := net.DialUDP("udp", nil, udpAddr)
-	highPayload := make([]byte, 800)
-	rand.Read(highPayload)
-	start2 := time.Now()
-	conn2.Write(highPayload)
-	conn2.SetReadDeadline(time.Now().Add(2 * time.Second))
-	_, _, err2 := conn2.ReadFromUDP(make([]byte, 1024))
-	logDiag("ENTROPY", fmt.Sprintf("High Entropy (800b Random): %v", err2 == nil))
-	conn2.Close()
-	
-	_ = start1
-	_ = start2
-}
-
-func testQUIC(addr, alpn string) {
-	logDiag("QUIC", fmt.Sprintf("--- TEST D: Handshake (ALPN: %s) ---", alpn))
-	
-	tlsConf := &tls.Config{
-		ServerName:         "www.google.com",
-		InsecureSkipVerify: true,
-		NextProtos:         []string{alpn},
+		time.Sleep(50 * time.Millisecond)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	start := time.Now()
-	conn, err := quic.DialAddr(ctx, addr, tlsConf, nil)
-	if err != nil {
-		logDiag("QUIC", fmt.Sprintf("Result: FAILED (%v)", err))
-		return
+	loss := float64(iterations-success) / float64(iterations) * 100
+	avg := time.Duration(0)
+	if success > 0 {
+		avg = totalTime / time.Duration(success)
 	}
-	defer conn.CloseWithError(0, "")
 
-	logDiag("QUIC", fmt.Sprintf("Result: SUCCESS (Time: %v)", time.Since(start)))
+	status := "PASS"
+	if loss > 20 { status = "WARNING" }
+	if success == 0 { status = "FAIL" }
+
+	logTest(name, fmt.Sprintf("RESULT: %s | Loss: %.1f%% | Avg RTT: %v", status, loss, avg))
 }
 
 func main() {
@@ -128,17 +70,28 @@ func main() {
 		return
 	}
 
-	fmt.Printf("SloPN Diagnostic Probe v0.9.5-diag-v3\n")
+	fmt.Printf("SloPN Diagnostic Probe v0.9.5-diag-v4\n")
 	fmt.Printf("Target: %s\n", *target)
 	fmt.Println("====================================================")
 
-	testBaseline(*target)
+	// Test A: Low-level Baseline
+	runUDPTest("BASELINE", *target, 32, "Tiny Ping", 5)
 	fmt.Println()
-	testMTU(*target)
+
+	// Test B: MTU Sweep
+	sizes := []int{500, 1000, 1200, 1300, 1400, 1450}
+	for _, s := range sizes {
+		runUDPTest("MTU-SWEEP", *target, s, fmt.Sprintf("%d bytes", s), 1)
+	}
 	fmt.Println()
-	testEntropy(*target)
+
+	// Test C: Entropy Impact (Zero vs Random)
+	logTest("ENTROPY", "Testing Zero-filled packets...")
+	runUDPTest("ENTROPY-ZERO", *target, 1000, "1000b Zeros", 3)
+	
+	logTest("ENTROPY", "Testing Random-filled packets...")
+	runUDPTest("ENTROPY-RAND", *target, 1000, "1000b Random", 3)
 	fmt.Println()
-	testQUIC(*target, "h3")
-	testQUIC(*target, "slopn-protocol")
-	testQUIC(*target, "http/1.1")
+
+	fmt.Println("Diagnostic Complete. Please provide the output above and the server logs.")
 }

@@ -60,7 +60,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v3"
+const ServerVersion = "0.9.5-diag-v4"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -201,36 +201,38 @@ func main() {
 	var finalConn net.PacketConn = udpConn
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE ENABLED on :%d.\n", *port)
-		
-		// Start a real QUIC listener for handshake testing
-		tlsConfig, _ := certutil.GenerateSelfSignedConfig()
-		tlsConfig.NextProtos = []string{"h3", "slopn-protocol", "http/1.1"}
-		
-		quicConfig := &quic.Config{EnableDatagrams: true}
-		listener, _ := quic.Listen(udpConn, tlsConfig, quicConfig)
-		_ = listener // Keep listener alive
-
-		fmt.Println("Listening for Handshakes and Echo probes...")
+		fmt.Printf("DIAGNOSTIC MODE v4 ENABLED on :%d.\n", *port)
 		
 		for {
-			// We use a raw buffer to peek at packets before QUIC handles them
 			buf := make([]byte, 2048)
 			n, addr, err := udpConn.ReadFrom(buf)
 			if err != nil {
 				continue
 			}
 
-			// Print hex dump of first 16 bytes
+			// 1. Calculate Entropy (Shannon Entropy approximation)
+			counts := make(map[byte]int)
+			for _, b := range buf[:n] {
+				counts[b]++
+			}
+			var entropy float64
+			for _, count := range counts {
+				p := float64(count) / float64(n)
+				entropy -= p * (p * 0.693147) // Simple log2 approximation
+			}
+
+			// 2. Log Detailed Metrics
 			limit := n
 			if limit > 16 { limit = 16 }
-			fmt.Printf("[DIAG] RECV %d bytes from %v | Hex: %x\n", n, addr, buf[:limit])
+			fmt.Printf("[DIAG] %-15v | Size: %4d | Entropy: %4.2f | Hex: %x\n", addr, n, entropy, buf[:limit])
 
-			// If it looks like a probe (not QUIC), echo it back
-			// QUIC packets start with 0x40 or higher, our probes are ASCII
-			if n > 0 && buf[0] < 0x40 {
+			// 3. Dispatch
+			// If it looks like a probe (ASCII PING or MTU), echo it
+			if n > 0 && (buf[0] == 'P' || buf[0] == 'M' || buf[0] == 0) {
 				udpConn.WriteTo(buf[:n], addr)
 			}
+			// Note: In diag-v4 we prioritize raw UDP over QUIC to ensure 
+			// baseline connectivity is verified first.
 		}
 	}
 
