@@ -3,6 +3,7 @@ config.json
 config2.json
 
 # Build Artifacts
+check_mimic.go
 bin/
 /packaging/payload/
 *.exe

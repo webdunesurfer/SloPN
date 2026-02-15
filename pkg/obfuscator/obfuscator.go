@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -208,9 +209,11 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 	c.proxyMu.Lock()
 	sess, exists := c.proxySessions[remoteKey]
 	if !exists {
+		fmt.Printf("[DEBUG] Creating new proxy session for %v -> %v\n", addr, c.mimicAddr)
 		// Create new proxy connection
 		conn, err := net.DialUDP("udp", nil, c.mimicAddr)
 		if err != nil {
+			fmt.Printf("[DEBUG] Failed to dial mimic target: %v\n", err)
 			c.proxyMu.Unlock()
 			return
 		}
@@ -228,9 +231,11 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 				proxyConn.SetReadDeadline(time.Now().Add(ProxyTimeout))
 				n, err := proxyConn.Read(buf)
 				if err != nil {
+					fmt.Printf("[DEBUG] Proxy session closed for %v: %v\n", clientAddr, err)
 					return // End of session
 				}
 
+				fmt.Printf("[DEBUG] Proxy forwarding %d bytes back to %v\n", n, clientAddr)
 				// Forward response back to the original client
 				c.PacketConn.WriteTo(buf[:n], clientAddr)
 				

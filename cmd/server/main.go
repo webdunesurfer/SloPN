@@ -59,7 +59,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.8.5"
+const ServerVersion = "0.8.6"
 
 type RateLimiter struct {
 	mu       sync.Mutex
