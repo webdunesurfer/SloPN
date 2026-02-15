@@ -3,6 +3,8 @@
 # SloPN One-Click Server Installer
 # Author: webdunesurfer
 # License: GNU GPLv3
+# Version: 0.8.4-FINAL-FIX
+# Updated: 2026-02-15 18:35:00
 
 set -e
 
