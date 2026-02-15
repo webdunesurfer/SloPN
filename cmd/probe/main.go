@@ -128,10 +128,12 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		
 		deadline := time.Now().Add(1500 * time.Millisecond)
 		received := false
+		var n int
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
 			conn.SetReadDeadline(deadline)
-			_, err := conn.Read(buf)
+			var err error
+			n, err = conn.Read(buf)
 			if err != nil { break }
 			if string(buf[1:11]) == seqStr {
 				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
