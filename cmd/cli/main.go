@@ -63,7 +63,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("SloPN CLI Client v0.9.5-diag-v20")
+	fmt.Println("SloPN CLI Client v0.9.5-diag-v21")
 	fmt.Println("Usage:")
 	fmt.Println("  slopn connect [flags]   Connect to VPN")
 	fmt.Println("  slopn disconnect        Disconnect VPN")

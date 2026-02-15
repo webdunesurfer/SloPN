@@ -56,7 +56,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v20"
+const ServerVersion = "0.9.5-diag-v21"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -150,14 +150,14 @@ func main() {
 	if err != nil { log.Fatal(err) }
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v20 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v21 ENABLED on :%d.\n", *port)
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
 		diagProxies := make(map[string]*net.UDPConn)
 		var dpMu sync.Mutex
 		
 		type clientStateData struct {
 			lastSeen time.Time
-			seenSeqs map[string]bool
+			seenSeqs map[string]time.Time
 		}
 		clientState := make(map[string]*clientStateData)
 		var csMu sync.Mutex
@@ -179,7 +179,7 @@ func main() {
 				csMu.Lock()
 				state, exists := clientState[remoteKey]
 				if !exists {
-					state = &clientStateData{seenSeqs: make(map[string]bool)}
+					state = &clientStateData{seenSeqs: make(map[string]time.Time)}
 					clientState[remoteKey] = state
 				}
 				gap := time.Since(state.lastSeen)
@@ -198,10 +198,19 @@ func main() {
 						seq = string(data[1:11])
 						
 						csMu.Lock()
-						if state.seenSeqs[seq] {
-							replay = " [REPLAY DETECTED]"
+						firstSeen, seen := state.seenSeqs[seq]
+						if seen {
+							// If >2 seconds since first seen, likely a replay attack
+							if time.Since(firstSeen) > 2*time.Second {
+								replay = " [DPI REPLAY ATTACK]"
+							} else {
+								replay = " [RETRANS]"
+							}
+						} else {
+							state.seenSeqs[seq] = time.Now()
 						}
-						state.seenSeqs[seq] = true
+						// Cleanup old seqs
+						if len(state.seenSeqs) > 1000 { state.seenSeqs = make(map[string]time.Time) }
 						csMu.Unlock()
 
 						receivedCRC := binary.BigEndian.Uint32(data[len(data)-4:])
