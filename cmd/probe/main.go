@@ -128,7 +128,7 @@ func main() {
 		fmt.Printf("Saving results to: %s\n", fileName)
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v8\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v9\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 

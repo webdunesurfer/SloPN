@@ -61,7 +61,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.9.5-diag-v8"
+const ServerVersion = "0.9.5-diag-v9"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -202,18 +202,28 @@ func main() {
 	var finalConn net.PacketConn = udpConn
 
 	if *diagMode {
-		fmt.Printf("DIAGNOSTIC MODE v8 ENABLED on :%d.\n", *port)
+		fmt.Printf("DIAGNOSTIC MODE v9 ENABLED on :%d.\n", *port)
 		
-		// Create a proxy for QUIC mirroring tests
 		mimicAddr, _ := net.ResolveUDPAddr("udp", *mimic)
+		diagProxies := make(map[string]*net.UDPConn)
+		var dpMu sync.Mutex
 
 		for {
 			buf := make([]byte, 2048)
 			n, addr, err := udpConn.ReadFrom(buf)
-			if err != nil {
-				continue
+			if err != nil { continue }
+
+			// 1. Labeling Fix
+			ptype := "RAW"
+			if n > 0 && buf[0] == 0xFF {
+				ptype = "PROBE"
+			} else if n > 0 && (buf[0]&0x80) != 0 {
+				ptype = "QUIC-LONG"
+			} else if n > 0 && (buf[0]&0x40) != 0 {
+				ptype = "QUIC-SHORT"
 			}
 
+			// 2. Entropy
 			counts := make(map[byte]int)
 			for _, b := range buf[:n] { counts[b]++ }
 			var entropy float64
@@ -222,35 +232,41 @@ func main() {
 				entropy -= p * math.Log2(p)
 			}
 
-			ptype := "RAW"
-			if n > 0 && (buf[0]&0x80) != 0 {
-				ptype = "QUIC-LONG"
-			} else if n > 0 && (buf[0]&0x40) != 0 {
-				ptype = "QUIC-SHORT"
-			}
-
 			fmt.Printf("[DIAG] %-15v | Size: %4d | Ent: %4.2f | Type: %-10s | Hex: %x\n", addr, n, entropy, ptype, buf[0:8])
 
-			// DISPATCH LOGIC
-			if n > 0 && buf[0] == 0xFF {
-				// Explicit Echo Probe
+			// 3. Dispatch
+			if ptype == "PROBE" {
 				udpConn.WriteTo(buf[:n], addr)
-			} else if ptype == "QUIC-LONG" && mimicAddr != nil {
-				// Perform a one-off mirroring test for handshakes
-				go func(clientAddr net.Addr, handshake []byte) {
-					proxy, err := net.DialUDP("udp", nil, mimicAddr)
-					if err != nil { return }
-					defer proxy.Close()
-					proxy.SetWriteDeadline(time.Now().Add(2 * time.Second))
-					proxy.Write(handshake)
+			} else if mimicAddr != nil {
+				// Stable Proxy Logic for Diag
+				remoteKey := addr.String()
+				dpMu.Lock()
+				proxyConn, exists := diagProxies[remoteKey]
+				if !exists {
+					proxyConn, _ = net.DialUDP("udp", nil, mimicAddr)
+					diagProxies[remoteKey] = proxyConn
+					// Cleanup after 30s
+					go func(k string, c *net.UDPConn) {
+						time.Sleep(30 * time.Second)
+						dpMu.Lock()
+						delete(diagProxies, k)
+						dpMu.Unlock()
+						c.Close()
+					}(remoteKey, proxyConn)
 					
-					resp := make([]byte, 2048)
-					proxy.SetReadDeadline(time.Now().Add(2 * time.Second))
-					rn, _ := proxy.Read(resp)
-					if rn > 0 {
-						udpConn.WriteTo(resp[:rn], clientAddr)
-					}
-				}(addr, buf[:n])
+					// Listen for responses
+					go func(clientAddr net.Addr, pc *net.UDPConn) {
+						rBuf := make([]byte, 2048)
+						for {
+							pc.SetReadDeadline(time.Now().Add(5 * time.Second))
+							rn, _ := pc.Read(rBuf)
+							if rn <= 0 { return }
+							udpConn.WriteTo(rBuf[:rn], clientAddr)
+						}
+					}(addr, proxyConn)
+				}
+				dpMu.Unlock()
+				proxyConn.Write(buf[:n])
 			}
 		}
 	}
