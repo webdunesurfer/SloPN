@@ -112,7 +112,7 @@ func testQUIC(addr, alpn string) {
 	logTest("QUIC-PROBE", fmt.Sprintf("Handshake SUCCESS in %v", time.Since(start)))
 }
 
-func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
+func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool, prefix string) {
 	label := "Low Entropy"
 	if highEntropy { label = "High Entropy" }
 	logTest(name, fmt.Sprintf("Starting 60s %s test (%d bytes, 1 pps)...", label, size))
@@ -123,7 +123,7 @@ func testFlow(name string, conn *net.UDPConn, size int, highEntropy bool) {
 		payload := make([]byte, size)
 		if highEntropy { rand.Read(payload) }
 		payload[0] = 0xFF
-		seqStr := fmt.Sprintf("FLW-%06d", i)
+		seqStr := fmt.Sprintf("%s-%06d", prefix, i)
 		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
@@ -179,7 +179,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v27\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v28\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -192,7 +192,6 @@ func main() {
 
 	sizes := []int{500, 1200, 1400}
 	for i, s := range sizes {
-		// Use distinct prefixes: M01, M02, M03 to ensure unique IDs (e.g. M01-000001)
 		prefix := fmt.Sprintf("M%02d", i+1)
 		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, prefix)
 	}
@@ -201,8 +200,8 @@ func main() {
 	testQUIC(*target, "h3")
 	printf("\n")
 
-	testFlow("FLOW-LOW", conn, 64, false)
+	testFlow("FLOW-LOW", conn, 64, false, "LOW")
 	printf("\n")
 
-	testFlow("FLOW-HIGH", conn, 1000, true)
+	testFlow("FLOW-HIGH", conn, 1000, true, "HGH")
 }
