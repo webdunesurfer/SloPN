@@ -142,6 +142,7 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		}
 
 		remoteKey := addr.String()
+		fmt.Printf("[DEBUG] Reality Gatekeeper: Received %d bytes from %v\n", n, addr)
 		
 		// 1. Check if already authenticated
 		c.sessionsMu.RLock()
