@@ -144,6 +144,12 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		}
 
 		if n < MagicHeaderLen {
+			// If it's a tiny packet (like our echo test), respond immediately
+			if n > 0 && n < 64 {
+				fmt.Printf("[DEBUG] Reality Gatekeeper: Received small probe (%d bytes) from %v - echo back\n", n, addr)
+				c.PacketConn.WriteTo(buf[:n], addr)
+				continue
+			}
 			c.handleMirror(buf[:n], addr)
 			continue
 		}
