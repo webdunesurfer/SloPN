@@ -119,10 +119,17 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 
 		if hmac.Equal(signature, expected) {
 			// Authorized SloPN packet
-			payload := buf[MagicHeaderLen:n]
+			padLen := int(salt[0] & 31)
+			realPayloadLen := n - MagicHeaderLen - padLen
+			if realPayloadLen < 0 {
+				c.handleMirror(buf[:n], addr)
+				continue
+			}
+
+			payload := buf[MagicHeaderLen : MagicHeaderLen+realPayloadLen]
 			c.xor(payload, salt)
 			copy(p, payload)
-			return n - MagicHeaderLen, addr, nil
+			return realPayloadLen, addr, nil
 		}
 
 		// Unauthorized probe
