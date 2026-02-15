@@ -1,5 +1,5 @@
 #define MyAppName "SloPN (Debug)"
-#define MyAppVersion "0.7.4"
+#define MyAppVersion "0.8.1"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
 #define MyAppExeName "SloPN.exe"
@@ -52,14 +52,11 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
 [Run]
 ; Install TAP Driver
 Filename: "{app}\driver\tapinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
-[Run]
-; Install TAP Driver
-Filename: "{app}\driver\tapinstall.exe"; Parameters: "install ""{app}\driver\OemVista.inf"" tap0901"; StatusMsg: "Installing virtual network adapter..."; Flags: runhidden
 ; Create/Update Helper Service
 Filename: "{sys}\sc.exe"; Parameters: "create SloPNHelper binPath= ""{app}\{#MyHelperExeName}"" start= auto displayname= ""SloPN Privileged Helper (Debug)"""; Flags: runhidden
 ; Ensure binPath is updated if it changed
 Filename: "{sys}\sc.exe"; Parameters: "config SloPNHelper binPath= ""{app}\{#MyHelperExeName}"""; Flags: runhidden
-Filename: "{sys}\sc.exe"; Parameters: "start SloPNHelper"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "start SloPNHelper"; Flags: runhidden; BeforeInstall: CreateVerboseFlag
 ; Launch GUI
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
@@ -106,6 +103,12 @@ begin
   Exec('sc.exe', 'stop SloPNHelper', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /IM {#MyHelperExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Sleep(1000);
+end;
+
+procedure CreateVerboseFlag();
+begin
+  ForceDirectories(ExpandConstant('{commonappdata}') + '\SloPN');
+  SaveStringToFile(ExpandConstant('{commonappdata}') + '\SloPN\verbose.flag', 'enabled', False);
 end;
 
 procedure InitializeWizard;
@@ -170,9 +173,6 @@ begin
     
     // Ensure ProgramData directory exists for logs/secrets
     ForceDirectories(ExpandConstant('{commonappdata}') + '\SloPN');
-
-    // CREATE VERBOSE FLAG FOR DEBUG BUILD
-    SaveStringToFile(ExpandConstant('{commonappdata}') + '\SloPN\verbose.flag', 'enabled', False);
 
     SettingsPath := ExpandConstant('{userappdata}') + '\SloPN';
     ForceDirectories(SettingsPath);

@@ -17,9 +17,11 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/webdunesurfer/SloPN/pkg/iputil"
+	"github.com/webdunesurfer/SloPN/pkg/obfuscator"
 	"github.com/webdunesurfer/SloPN/pkg/protocol"
 	"github.com/webdunesurfer/SloPN/pkg/tunutil"
 )
@@ -27,10 +29,12 @@ import (
 type Config struct {
 	ServerAddr    string `json:"server_addr"`
 	Token         string `json:"token"`
+	SNI           string `json:"sni"`
 	Verbose       bool   `json:"verbose"`
 	HostRouteOnly bool   `json:"host_route_only"`
 	NoRoute       bool   `json:"no_route"`
 	FullTunnel    bool   `json:"full_tunnel"`
+	Obfuscate     bool   `json:"obfuscate"`
 }
 
 var (
@@ -62,8 +66,36 @@ func main() {
 	}
 
 	// 1. Setup QUIC Client
-	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"slopn-protocol"}}
-	conn, err := quic.DialAddr(context.Background(), cfg.ServerAddr, tlsConf, &quic.Config{EnableDatagrams: true})
+	if cfg.SNI == "" {
+		cfg.SNI = "194.163.160.234"
+	}
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"slopn-protocol"},
+		ServerName:         cfg.SNI,
+	}
+
+	udpAddr, err := net.ResolveUDPAddr("udp", cfg.ServerAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	udpConn, err := net.ListenPacket("udp", "0.0.0.0:0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer udpConn.Close()
+
+	var finalConn net.PacketConn = udpConn
+	if cfg.Obfuscate {
+		fmt.Printf("Protocol Obfuscation (Reality) enabled. SNI: %s\n", cfg.SNI)
+		finalConn = obfuscator.NewRealityConn(udpConn, cfg.Token, "")
+	}
+
+	conn, err := quic.Dial(context.Background(), finalConn, udpAddr, tlsConf, &quic.Config{
+		EnableDatagrams: true,
+		KeepAlivePeriod: 10 * time.Second,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +110,7 @@ func main() {
 
 	json.NewEncoder(stream).Encode(protocol.LoginRequest{
 		Type: protocol.MessageTypeLoginRequest, Token: cfg.Token,
-		ClientVersion: "0.1.0", OS: runtime.GOOS,
+		ClientVersion: "0.8.1", OS: runtime.GOOS,
 	})
 
 	var loginResp protocol.LoginResponse

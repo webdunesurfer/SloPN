@@ -50,7 +50,8 @@ var (
 	port      = flag.Int("port", 4242, "UDP Port to listen on")
 	token     = flag.String("token", getEnv("SLOPN_TOKEN", "secret-token"), "Authentication token required for clients")
 	enableNAT = flag.Bool("nat", false, "Enable NAT (MASQUERADE) for internet access")
-	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (XOR)")
+	obfs      = flag.Bool("obfs", true, "Enable protocol obfuscation (Reality-style)")
+	mimic     = flag.String("mimic", getEnv("SLOPN_MIMIC", "194.163.160.234:443"), "Target server to mimic for unauthorized probes")
 
 	// Rate Limiting Config
 	maxAttempts = flag.Int("max-attempts", getEnvInt("SLOPN_MAX_ATTEMPTS", 5), "Maximum failed attempts before ban")
@@ -58,7 +59,7 @@ var (
 	banMins     = flag.Int("ban-duration", getEnvInt("SLOPN_BAN_DURATION", 60), "Ban duration in minutes")
 )
 
-const ServerVersion = "0.7.4"
+const ServerVersion = "0.8.1"
 
 type RateLimiter struct {
 	mu       sync.Mutex
@@ -198,8 +199,8 @@ func main() {
 
 	var finalConn net.PacketConn = udpConn
 	if *obfs {
-		fmt.Println("Protocol Obfuscation (XOR) enabled.")
-		finalConn = obfuscator.NewObfuscatedConn(udpConn, *token)
+		fmt.Printf("Protocol Obfuscation (Reality) enabled. Mimicking: %s\n", *mimic)
+		finalConn = obfuscator.NewRealityConn(udpConn, *token, *mimic)
 	}
 
 	listener, err := quic.Listen(finalConn, tlsConfig, &quic.Config{

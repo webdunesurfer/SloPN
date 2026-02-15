@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.7.4"
+	HelperVersion = "0.8.1"
 )
 
 type Helper struct {
@@ -37,6 +37,7 @@ type Helper struct {
 	assignedVIP   string
 	serverVIP     string
 	serverAddr    string
+	sni           string
 	helperVersion string
 	serverVersion string
 	fullTunnel    bool
@@ -193,8 +194,8 @@ func (h *Helper) handleIPC(c net.Conn) {
 
 	switch req.Command {
 	case ipc.CmdConnect:
-		logHelper(fmt.Sprintf("[IPC] Connecting to %s (Obfs: %v)", req.ServerAddr, req.Obfuscate))
-		err := h.connect(req.ServerAddr, req.Token, req.FullTunnel, req.Obfuscate)
+		logHelper(fmt.Sprintf("[IPC] Connecting to %s (SNI: %s, Obfs: %v)", req.ServerAddr, req.SNI, req.Obfuscate))
+		err := h.connect(req.ServerAddr, req.Token, req.SNI, req.FullTunnel, req.Obfuscate)
 		if err != nil {
 			resp = ipc.Response{Status: "error", Message: err.Error()}
 		} else {
@@ -232,7 +233,7 @@ func (h *Helper) disconnect() {
 	h.startTime = time.Time{}
 }
 
-func (h *Helper) connect(addr, token string, full, obfs bool) error {
+func (h *Helper) connect(addr, token, sni string, full, obfs bool) error {
 	h.mu.Lock()
 	if h.state == "connected" || h.state == "connecting" {
 		h.mu.Unlock()
@@ -240,6 +241,7 @@ func (h *Helper) connect(addr, token string, full, obfs bool) error {
 	}
 	h.state = "connecting"
 	h.serverAddr = addr
+	h.sni = sni
 	h.fullTunnel = full
 	h.obfuscate = obfs
 	h.mu.Unlock()
@@ -249,7 +251,7 @@ func (h *Helper) connect(addr, token string, full, obfs bool) error {
 	h.cancelVPN = cancel
 	h.mu.Unlock()
 
-	go h.vpnLoop(ctx, addr, token, full, obfs)
+	go h.vpnLoop(ctx, addr, token, sni, full, obfs)
 	return nil
 }
 
@@ -266,11 +268,11 @@ func getLocalIP() string {
 	return "0.0.0.0"
 }
 
-func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs bool) {
+func (h *Helper) vpnLoop(ctx context.Context, addr, token, sni string, full, obfs bool) {
 	h.vpnWG.Add(1)
 	defer h.vpnWG.Done()
 	
-	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s (Obfs: %v)", addr, obfs))
+	logHelper(fmt.Sprintf("[VPN] Starting vpnLoop for %s (SNI: %s, Obfs: %v)", addr, sni, obfs))
 	
 	serverHost, _, _ := net.SplitHostPort(addr)
 	var ifceName string
@@ -291,7 +293,15 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 
 	h.setupRouting(full, serverHost, "", "") // serverVIP not known yet
 
-	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"slopn-protocol"}}
+	// Reality-style SNI Spoofing
+	if sni == "" {
+		sni = "194.163.160.234" // Default testing target
+	}
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"slopn-protocol"},
+		ServerName:         sni,
+	}
 	
 	localIP := getLocalIP()
 	logHelper(fmt.Sprintf("[VPN] Using local source IP: %s", localIP))
@@ -304,8 +314,8 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token string, full, obfs boo
 
 	var finalConn net.PacketConn = udpConn
 	if obfs {
-		logHelper("[VPN] Protocol Obfuscation enabled.")
-		finalConn = obfuscator.NewObfuscatedConn(udpConn, token)
+		logHelper("[VPN] Protocol Obfuscation (Reality) enabled.")
+		finalConn = obfuscator.NewRealityConn(udpConn, token, "") // Client doesn't need mimicTarget
 	}
 	
 	remoteAddr, err := net.ResolveUDPAddr("udp4", addr)
