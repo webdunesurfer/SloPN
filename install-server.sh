@@ -4,7 +4,7 @@
 # Author: webdunesurfer
 # License: GNU GPLv3
 # Version: 0.9.4
-# Updated: 2026-02-15 20:30:00
+# Updated: 2026-02-15 20:45:00
 
 set -e
 
@@ -43,7 +43,7 @@ fi
 # 3. Generate Secure Configuration
 echo -e "\n${BLUE}[3/5] Generating secure configuration...${NC}"
 TOKEN=$(openssl rand -hex 16)
-VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.7.3")
+VERSION=$(grep "const ServerVersion =" cmd/server/main.go | cut -d'"' -f2 || echo "0.9.4")
 # Force IPv4
 PUBLIC_IP=$(curl -4s https://ifconfig.me || echo "your-server-ip")
 
