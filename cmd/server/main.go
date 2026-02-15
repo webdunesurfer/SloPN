@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"hash/crc32"
-	"log"
 	"math"
 	"net"
 	"os"
