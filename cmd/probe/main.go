@@ -52,7 +52,7 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		if size > 32 { rand.Read(payload[32:]) }
 		
 		payload[0] = 0xFF 
-		seqStr := fmt.Sprintf("%s-%06d", seqPrefix, i) // Ensure 10 chars
+		seqStr := fmt.Sprintf("%s-%06d", seqPrefix, i)
 		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
@@ -63,25 +63,30 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 		
 		// Smart Read Loop
 		deadline := time.Now().Add(2 * time.Second)
+		var n int
+		received := false
 		for time.Now().Before(deadline) {
 			buf := make([]byte, 2048)
 			conn.SetReadDeadline(deadline)
-			n, err := conn.Read(buf)
+			var err error
+			n, err = conn.Read(buf)
 			if err != nil { break }
-
 			if n == size && string(buf[1:11]) == seqStr {
 				receivedCRC := binary.BigEndian.Uint32(buf[n-4:n])
 				computedCRC := crc32.ChecksumIEEE(buf[:n-4])
 				if receivedCRC == computedCRC {
-					success++
-					totalTime += time.Since(start)
-					goto next_iteration
+					received = true
+					break
 				}
 			}
 		}
-		logTest(name, fmt.Sprintf("  %s: FAILED (Timeout or Corrupt)", seqStr))
 
-	next_iteration:
+		if received {
+			success++
+			totalTime += time.Since(start)
+		} else {
+			logTest(name, fmt.Sprintf("  %s: FAILED (Timeout or Corrupt)", seqStr))
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -174,7 +179,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v26\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v27\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
@@ -186,9 +191,10 @@ func main() {
 	printf("\n")
 
 	sizes := []int{500, 1200, 1400}
-	for _, s := range sizes {
-		// Use standard 3-char prefix to keep seqStr exactly 10 chars (MTU-000001)
-		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, "MTU")
+	for i, s := range sizes {
+		// Use distinct prefixes: M01, M02, M03 to ensure unique IDs (e.g. M01-000001)
+		prefix := fmt.Sprintf("M%02d", i+1)
+		runUDPTest("MTU-SWEEP", conn, s, fmt.Sprintf("%d bytes", s), 1, prefix)
 	}
 	printf("\n")
 

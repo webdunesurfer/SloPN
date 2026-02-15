@@ -56,7 +56,7 @@ var (
 	diagMode  = flag.Bool("diag", false, "Enable diagnostic echo mode")
 )
 
-const ServerVersion = "0.9.5-diag-v26"
+const ServerVersion = "0.9.5-diag-v27"
 
 type RateLimiter struct {
 	mu       sync.Mutex
