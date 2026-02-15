@@ -41,31 +41,30 @@ func runUDPTest(name string, conn *net.UDPConn, size int, label string, iteratio
 			rand.Read(payload[32:])
 		}
 		
+		// SloPN Forensic Header: [Marker 0xFF] + [Sequence 10 bytes] + [CRC32 4 bytes at end]
 		payload[0] = 0xFF 
-		seqStr := fmt.Sprintf("SEQ-%06d", i)
-		copy(payload[1:12], []byte(seqStr))
+		seqStr := fmt.Sprintf("SEQ-%06d", i) // 10 chars
+		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:size-4])
 		binary.BigEndian.PutUint32(payload[size-4:], checksum)
 
 		start := time.Now()
-		_, err := conn.Write(payload)
-		if err != nil {
-			logTest(name, fmt.Sprintf("  %s: WRITE ERROR: %v", seqStr, err))
-			continue
-		}
+		conn.Write(payload)
 		
 		buf := make([]byte, 2048)
 		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		n, err := conn.Read(buf)
 		
-		if err == nil && n == size && string(buf[1:12]) == seqStr {
-			success++
-			totalTime += time.Since(start)
-		} else if err != nil {
-			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
+		if err == nil {
+			if n == size && string(buf[1:11]) == seqStr {
+				success++
+				totalTime += time.Since(start)
+			} else {
+				logTest(name, fmt.Sprintf("  %s: CONTENT MISMATCH (Exp: %s, Got: %s)", seqStr, seqStr, string(buf[1:11])))
+			}
 		} else {
-			logTest(name, fmt.Sprintf("  %s: CORRUPT (Size %d != %d)", seqStr, n, size))
+			logTest(name, fmt.Sprintf("  %s: TIMEOUT", seqStr))
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -105,7 +104,7 @@ func testFlow(name string, conn *net.UDPConn) {
 		payload := make([]byte, 64)
 		payload[0] = 0xFF
 		seqStr := fmt.Sprintf("FLW-%06d", i)
-		copy(payload[1:12], []byte(seqStr))
+		copy(payload[1:11], []byte(seqStr))
 		
 		checksum := crc32.ChecksumIEEE(payload[:60])
 		binary.BigEndian.PutUint32(payload[60:], checksum)
@@ -116,10 +115,16 @@ func testFlow(name string, conn *net.UDPConn) {
 		conn.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
 		_, err := conn.Read(buf)
 		
-		if err != nil {
+		if err == nil {
+			if string(buf[1:11]) == seqStr {
+				if i % 10 == 0 {
+					logTest(name, fmt.Sprintf("  Flow healthy at %ds...", i))
+				}
+			} else {
+				logTest(name, fmt.Sprintf("  Packet %d: CONTENT MISMATCH", i))
+			}
+		} else {
 			logTest(name, fmt.Sprintf("  Packet %d (%s): DROPPED", i, seqStr))
-		} else if i%10 == 0 {
-			logTest(name, fmt.Sprintf("  Flow healthy at %ds...", i))
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -144,17 +149,11 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.5-diag-v14\n")
+	printf("SloPN Diagnostic Probe v0.9.5-diag-v15\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
-	udpAddr, err := net.ResolveUDPAddr("udp", *target)
-	if err != nil {
-		logTest("ERROR", fmt.Sprintf("Failed to resolve target: %v", err))
-		return
-	}
-
-	// Single stable socket for the entire session
+	udpAddr, _ := net.ResolveUDPAddr("udp", *target)
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
 		logTest("ERROR", fmt.Sprintf("Failed to create UDP socket: %v", err))
@@ -171,7 +170,6 @@ func main() {
 	}
 	printf("\n")
 
-	// QUIC test uses its own connection management internally but we run it sequentially
 	testQUIC(*target, "h3")
 	printf("\n")
 
