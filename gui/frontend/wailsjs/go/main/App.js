@@ -6,8 +6,8 @@ export function CheckNewInstall() {
   return window['go']['main']['App']['CheckNewInstall']();
 }
 
-export function Connect(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['Connect'](arg1, arg2, arg3, arg4);
+export function Connect(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['Connect'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function Disconnect() {
@@ -42,8 +42,8 @@ export function GetStatus() {
   return window['go']['main']['App']['GetStatus']();
 }
 
-export function SaveConfig(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4);
+export function SaveConfig(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function ShowAbout() {

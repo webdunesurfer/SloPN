@@ -67,6 +67,7 @@ export namespace main {
 	    server: string;
 	    token: string;
 	    obfuscate: any;
+	    sni: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new InitialConfig(source);
@@ -77,6 +78,7 @@ export namespace main {
 	        this.server = source["server"];
 	        this.token = source["token"];
 	        this.obfuscate = source["obfuscate"];
+	        this.sni = source["sni"];
 	    }
 	}
 

@@ -1,5 +1,5 @@
 #define MyAppName "SloPN (Debug)"
-#define MyAppVersion "0.9.5-diag-v28"
+#define MyAppVersion "0.9.6"
 #define MyAppPublisher "webdunesurfer"
 #define MyAppURL "https://github.com/webdunesurfer/SloPN"
 #define MyAppExeName "SloPN.exe"
@@ -39,8 +39,6 @@ Source: "..\..\bin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\bin\{#MyHelperExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; CLI
 Source: "..\..\bin\slopn-cli.exe"; DestDir: "{app}"; Flags: ignoreversion
-; Probe Tool
-Source: "..\..\bin\slopn-probe.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Drivers
 Source: "driver\*"; DestDir: "{app}\driver"; Flags: ignoreversion recursesubdirs
 

@@ -14,8 +14,8 @@ import (
 )
 
 // RealityConn implements a "Reality-style" stealth transport.
-// In v0.9.2+, this is a stateless authenticated wrapper where EVERY packet
-// includes a Magic Header for maximum robustness against UDP loss and DPI.
+// v0.9.6: Uses First-Packet-Obfuscation (FPO) to transition from masked handshakes
+// to clean QUIC flows after authorization.
 type RealityConn struct {
 	net.PacketConn
 	key         []byte
@@ -26,6 +26,11 @@ type RealityConn struct {
 	// proxySessions tracks unauthorized probes for mirroring
 	proxySessions map[string]*proxySession
 	proxyMu       sync.RWMutex
+
+	// FPO (First-Packet-Obfuscation) state
+	authIPs     map[string]time.Time
+	handshakeMu sync.RWMutex
+	sentCount   map[string]int
 }
 
 type proxySession struct {
@@ -37,6 +42,8 @@ const (
 	// MagicHeaderLen is Salt (8b) + HMAC-SHA256 (24b)
 	MagicHeaderLen = 32
 	ProxyTimeout   = 2 * time.Minute
+	AuthTimeout    = 1 * time.Hour
+	HandshakeLimit = 20 // Number of packets to obfuscate before switching to clean mode
 )
 
 func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *RealityConn {
@@ -59,6 +66,8 @@ func NewRealityConn(conn net.PacketConn, secret string, mimicTarget string) *Rea
 		authKey:    authKey,
 		mimicAddr:  mAddr,
 		proxySessions: make(map[string]*proxySession),
+		authIPs:       make(map[string]time.Time),
+		sentCount:     make(map[string]int),
 		pool: &sync.Pool{
 			New: func() interface{} {
 				return make([]byte, 2048)
@@ -81,6 +90,15 @@ func (c *RealityConn) cleanupLoop() {
 			}
 		}
 		c.proxyMu.Unlock()
+
+		c.handshakeMu.Lock()
+		for addr, t := range c.authIPs {
+			if time.Since(t) > AuthTimeout {
+				delete(c.authIPs, addr)
+				delete(c.sentCount, addr)
+			}
+		}
+		c.handshakeMu.Unlock()
 	}
 }
 
@@ -106,6 +124,20 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 			return 0, addr, err
 		}
 
+		remoteKey := addr.String()
+		ip, _, _ := net.SplitHostPort(remoteKey)
+
+		// 1. Fast Path: Whitelisted IP (Clean QUIC)
+		c.handshakeMu.RLock()
+		_, whitelisted := c.authIPs[ip]
+		c.handshakeMu.RUnlock()
+
+		if whitelisted {
+			copy(p, buf[:n])
+			return n, addr, nil
+		}
+
+		// 2. Slow Path: New flow or unauthorized probe
 		if n < MagicHeaderLen {
 			c.handleMirror(buf[:n], addr)
 			continue
@@ -118,13 +150,18 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		expected := mac.Sum(nil)[:24]
 
 		if hmac.Equal(signature, expected) {
-			// Authorized SloPN packet
+			// Authorized SloPN packet (FPO Mode)
 			padLen := int(salt[0] & 31)
 			realPayloadLen := n - MagicHeaderLen - padLen
 			if realPayloadLen < 0 {
 				c.handleMirror(buf[:n], addr)
 				continue
 			}
+
+			// Promotion: Whitelist this IP for Clean QUIC
+			c.handshakeMu.Lock()
+			c.authIPs[ip] = time.Now()
+			c.handshakeMu.Unlock()
 
 			payload := buf[MagicHeaderLen : MagicHeaderLen+realPayloadLen]
 			c.xor(payload, salt)
@@ -178,6 +215,19 @@ func (c *RealityConn) handleMirror(data []byte, addr net.Addr) {
 }
 
 func (c *RealityConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	remoteKey := addr.String()
+
+	// 1. Check if we should use Clean Mode
+	c.handshakeMu.Lock()
+	count := c.sentCount[remoteKey]
+	if count >= HandshakeLimit {
+		c.handshakeMu.Unlock()
+		return c.PacketConn.WriteTo(p, addr)
+	}
+	c.sentCount[remoteKey]++
+	c.handshakeMu.Unlock()
+
+	// 2. FPO Mode: Obfuscate packet
 	buf := c.pool.Get().([]byte)
 	defer c.pool.Put(buf)
 

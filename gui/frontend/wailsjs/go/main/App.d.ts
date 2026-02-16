@@ -5,7 +5,7 @@ import {ipc} from '../models';
 
 export function CheckNewInstall():Promise<boolean>;
 
-export function Connect(arg1:string,arg2:string,arg3:boolean,arg4:boolean):Promise<string>;
+export function Connect(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<string>;
 
 export function Disconnect():Promise<string>;
 
@@ -23,6 +23,6 @@ export function GetStats():Promise<ipc.Stats>;
 
 export function GetStatus():Promise<ipc.Status>;
 
-export function SaveConfig(arg1:string,arg2:string,arg3:boolean,arg4:boolean):Promise<void>;
+export function SaveConfig(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<void>;
 
 export function ShowAbout():Promise<void>;

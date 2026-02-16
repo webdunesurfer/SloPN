@@ -60,7 +60,6 @@ jobs:
         run: |
           mkdir -p bin
           go build -o bin/slopn-helper ./cmd/helper
-          go build -o bin/slopn-probe ./cmd/probe
 
       - name: Build GUI (Wails)
         run: |
@@ -159,7 +158,6 @@ jobs:
           mkdir bin
           go build -o bin/slopn-helper.exe ./cmd/helper
           go build -o bin/slopn-cli.exe ./cmd/cli
-          go build -o bin/slopn-probe.exe ./cmd/probe
 
       - name: Build GUI (Wails)
         shell: pwsh

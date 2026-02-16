@@ -28,7 +28,7 @@ import (
 
 const (
 	TCPAddr       = "127.0.0.1:54321"
-	HelperVersion = "0.9.5-diag-v28"
+	HelperVersion = "0.9.6"
 )
 
 type Helper struct {
@@ -382,7 +382,7 @@ func (h *Helper) vpnLoop(ctx context.Context, addr, token, sni string, full, obf
 	tunCfg := tunutil.Config{
 		Name: "slopn-tap0", // Use the name we established
 		Addr: loginResp.AssignedVIP, Peer: loginResp.ServerVIP,
-		Mask: "255.255.255.0", MTU: 1100,
+		Mask: "255.255.255.0", MTU: 900,
 	}
 	ifce, err := tunutil.CreateInterface(tunCfg)
 	if err != nil {
