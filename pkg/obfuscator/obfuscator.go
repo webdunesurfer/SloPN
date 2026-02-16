@@ -127,7 +127,35 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		remoteKey := addr.String()
 		ip, _, _ := net.SplitHostPort(remoteKey)
 
-		// 1. Fast Path: Whitelisted IP (Clean QUIC)
+		// 1. Try to parse as FPO (First-Packet-Obfuscation)
+		// Even if whitelisted, we check for FPO first to handle the overlap period
+		if n >= MagicHeaderLen {
+			salt := buf[:8]
+			signature := buf[8:32]
+			mac := hmac.New(sha256.New, c.authKey)
+			mac.Write(salt)
+			expected := mac.Sum(nil)[:24]
+
+			if hmac.Equal(signature, expected) {
+				padLen := int(salt[0] & 31)
+				realPayloadLen := n - MagicHeaderLen - padLen
+				if realPayloadLen >= 0 {
+					// Promotion: Ensure IP is whitelisted
+					c.handshakeMu.Lock()
+					if _, exists := c.authIPs[ip]; !exists {
+						c.authIPs[ip] = time.Now()
+					}
+					c.handshakeMu.Unlock()
+
+					payload := buf[MagicHeaderLen : MagicHeaderLen+realPayloadLen]
+					c.xor(payload, salt)
+					copy(p, payload)
+					return realPayloadLen, addr, nil
+				}
+			}
+		}
+
+		// 2. Fallback Path: Clean QUIC (only if whitelisted)
 		c.handshakeMu.RLock()
 		_, whitelisted := c.authIPs[ip]
 		c.handshakeMu.RUnlock()
@@ -137,39 +165,7 @@ func (c *RealityConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 			return n, addr, nil
 		}
 
-		// 2. Slow Path: New flow or unauthorized probe
-		if n < MagicHeaderLen {
-			c.handleMirror(buf[:n], addr)
-			continue
-		}
-
-		salt := buf[:8]
-		signature := buf[8:32]
-		mac := hmac.New(sha256.New, c.authKey)
-		mac.Write(salt)
-		expected := mac.Sum(nil)[:24]
-
-		if hmac.Equal(signature, expected) {
-			// Authorized SloPN packet (FPO Mode)
-			padLen := int(salt[0] & 31)
-			realPayloadLen := n - MagicHeaderLen - padLen
-			if realPayloadLen < 0 {
-				c.handleMirror(buf[:n], addr)
-				continue
-			}
-
-			// Promotion: Whitelist this IP for Clean QUIC
-			c.handshakeMu.Lock()
-			c.authIPs[ip] = time.Now()
-			c.handshakeMu.Unlock()
-
-			payload := buf[MagicHeaderLen : MagicHeaderLen+realPayloadLen]
-			c.xor(payload, salt)
-			copy(p, payload)
-			return realPayloadLen, addr, nil
-		}
-
-		// Unauthorized probe
+		// 3. Unauthorized probe: Mirror to target
 		c.handleMirror(buf[:n], addr)
 	}
 }
