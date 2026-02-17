@@ -179,7 +179,7 @@ func main() {
 		out = os.Stdout
 	}
 
-	printf("SloPN Diagnostic Probe v0.9.8-diag-v30\n")
+	printf("SloPN Diagnostic Probe v0.9.9-diag-v31\n")
 	printf("Target: %s\n", *target)
 	printf("====================================================\n")
 
